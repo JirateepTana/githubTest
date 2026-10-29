@@ -1,0 +1,417 @@
+<title>Siam Sunset Yacht</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chonburi&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600&display=swap">
+<style>
+/* Layout: the yacht fills the screen on calm water; a name plate top-left and one wrapping control bar at the bottom float over it.
+   One deliberate night look, built from the website's own tokens. */
+:root {
+  --ink: #0a0e14;
+  --paper: #f4ead9;
+  --marigold: #f5a524;
+  --muted: #b9b2a5;
+  --panel: rgba(10, 14, 20, .64);
+  --line: rgba(244, 234, 217, .16);
+  --display: "Chonburi", Georgia, serif;
+  --body: "IBM Plex Sans Thai Looped", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body { background: var(--ink); color: var(--paper); font: 400 15px/1.5 var(--body); overflow: hidden; }
+#view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; outline: none; }
+.plate {
+  position: fixed; top: calc(14px + env(safe-area-inset-top, 0px)); left: max(16px, env(safe-area-inset-left, 0px));
+  max-width: calc(100% - 2 * max(16px, env(safe-area-inset-left, 0px)));
+  display: flex; flex-direction: column; gap: 4px; pointer-events: none;
+  padding: 12px 16px; border-radius: 16px; background: var(--panel); border: 1px solid var(--line);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+}
+.plate h1 { margin: 0; font: 400 clamp(22px, 3.2vw, 34px)/1.15 var(--display); text-wrap: balance; }
+.plate h1 span { color: var(--marigold); }
+.spec { margin: 0; font-size: 13px; letter-spacing: .02em; color: var(--muted); font-variant-numeric: tabular-nums; }
+#status { margin: 0; font-size: 13px; color: var(--paper); }
+.bar {
+  position: fixed; left: 0; right: 0; bottom: 0;
+  padding-block: 12px calc(14px + env(safe-area-inset-bottom, 0px));
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; pointer-events: none;
+}
+.group {
+  pointer-events: auto; display: flex; flex-wrap: wrap; gap: 2px; padding: 4px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 999px;
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+}
+.group button {
+  min-height: 36px; padding: 0 14px; border: 0; border-radius: 999px; cursor: pointer;
+  font: 500 14px/1 var(--body); color: var(--paper); background: transparent;
+}
+.group button:hover { background: rgba(244, 234, 217, .08); }
+.group button[aria-pressed="true"] { background: var(--paper); color: var(--ink); }
+.group button:focus-visible { outline: 2px solid var(--marigold); outline-offset: 2px; }
+.group .swatch { width: 36px; padding: 0; display: grid; place-items: center; }
+.swatch i { width: 22px; height: 22px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .35); }
+</style>
+
+<canvas id="view" aria-label="3D model of the Siam Sunset motor yacht. Drag to turn it, scroll or pinch to zoom." role="img"></canvas>
+
+<div class="plate">
+  <h1>Siam <span>Sunset</span> Yacht</h1>
+  <p class="spec">LOA 101 m · beam 16 m · 5 decks · helipad with helicopter · pool · 76 dinner seats on deck · air draft 27 m</p>
+  <p id="status">Loading the yacht…</p>
+</div>
+
+<div class="bar">
+  <div class="group" role="group" aria-label="Time of day">
+    <button type="button" id="tSunset" aria-pressed="true">Sunset</button>
+    <button type="button" id="tDay" aria-pressed="false">Day</button>
+    <button type="button" id="tNight" aria-pressed="false">Night</button>
+  </div>
+  <div class="group" role="group" aria-label="Camera">
+    <button type="button" id="vBow" data-view="bow" aria-pressed="false">Bow</button>
+    <button type="button" id="vSide" data-view="side" aria-pressed="false">Side</button>
+    <button type="button" id="vStern" data-view="stern" aria-pressed="false">Stern</button>
+    <button type="button" id="vAbove" data-view="above" aria-pressed="false">Above</button>
+  </div>
+  <div class="group" role="group" aria-label="Colour scheme" id="swatches"></div>
+  <div class="group" role="group" aria-label="Turntable">
+    <button type="button" id="spin" aria-pressed="true">Spin</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/objects/Reflector.js"></script>
+<script>
+(function () {
+  "use strict";
+  const $ = (s) => document.querySelector(s);
+  const status = $("#status");
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!window.THREE || !THREE.GLTFLoader || !THREE.OrbitControls || !THREE.Reflector) { status.textContent = "The 3D viewer could not start: its three.js files did not load. Check the connection and refresh."; return; }
+  const canvas = $("#view");
+  let renderer;
+  try { renderer = new THREE.WebGLRenderer({ canvas, antialias: true }); }
+  catch (e) { status.textContent = "The 3D viewer needs WebGL, which is turned off in this browser."; return; }
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  const C = (h) => new THREE.Color(h);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(35, 1, 0.3, 4000);
+  const fit = innerWidth < innerHeight ? 1.9 : 1; // a tall phone screen sees a narrow slice: stand further back
+  camera.position.set(80 * fit, 28 * fit, 85 * fit);
+  const controls = new THREE.OrbitControls(camera, canvas);
+  controls.target.set(0, 9, 0);
+  controls.enableDamping = true;
+  controls.minDistance = 15; controls.maxDistance = 420;
+  controls.maxPolarAngle = Math.PI * 0.49; // stay above the water
+  controls.autoRotate = !reduce; controls.autoRotateSpeed = 0.6;
+
+  // sky dome; a blurred copy of it lights and reflects in the yacht
+  const skyU = { uNight: { value: 0 }, uTop: { value: C("#3f78b8") }, uHor: { value: C("#dfe7ee") }, uSun: { value: new THREE.Vector3(0, 1, 0) }, uSunCol: { value: C("#fff2dc") } };
+  const skyMat = new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false, uniforms: skyU,
+    vertexShader: "varying vec3 vD; void main(){ vD = position; vec4 p = projectionMatrix*modelViewMatrix*vec4(position,1.); gl_Position = p.xyww; }",
+    // the encodings chunk matters: the environment map is rendered into an RGBE target, and raw output there
+    // turns into garbage that makes every glossy material (glass, water) render black
+    fragmentShader: `uniform vec3 uTop,uHor,uSunCol,uSun; uniform float uNight; varying vec3 vD;
+      float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
+      float noise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.-2.*f);
+        return mix(mix(hash(i), hash(i+vec2(1.,0.)), f.x), mix(hash(i+vec2(0.,1.)), hash(i+vec2(1.,1.)), f.x), f.y); }
+      float fbm(vec2 p){ float v = 0., a = .5; for (int i = 0; i < 5; i++){ v += a*noise(p); p = p*2.03 + vec2(1.7,9.2); a *= .5; } return v; }
+      void main(){
+        vec3 d = normalize(vD); vec3 c = mix(uHor, uTop, pow(max(d.y,0.),.5)); c = mix(c, uHor*.55, clamp(-d.y*4.,0.,1.));
+        float s = max(dot(d, normalize(uSun)),0.);
+        if (d.y > 0.) { // fair-weather cumulus: lit white by day, faint grey-blue at night; they also show in the hull's reflections
+          float n = fbm(d.xz/(d.y + .12)*1.3);
+          float cov = smoothstep(.52, .78, n)*smoothstep(0., .18, d.y);
+          vec3 cl = mix(mix(uHor, vec3(1.), .6) + uSunCol*pow(s,6.)*.4, uHor*.5 + vec3(.03,.035,.06), uNight);
+          c = mix(c, cl, cov*.9);
+        }
+        c += uSunCol*(pow(s,800.)*6. + pow(s,10.)*.22);
+        gl_FragColor = vec4(c,1.);
+        #include <tonemapping_fragment>
+        #include <encodings_fragment>
+      }`
+  });
+  const skyDome = new THREE.Mesh(new THREE.SphereGeometry(2000, 32, 16), skyMat);
+  scene.add(skyDome);
+  // the sunset is a real photographed sky (Poly Haven "Small Harbour Sunset", CC0); it lights the yacht too.
+  // Left linear, like the rest of the page's output (see HANDOFF: sRGB output washed it out).
+  let skyTex = null, curTime = "sunset";
+  new THREE.TextureLoader().load("sky-sunset.jpg", (t) => {
+    t.mapping = THREE.EquirectangularReflectionMapping; skyTex = t;
+    if (curTime === "sunset") setTime("sunset");
+  });
+  const envScene = new THREE.Scene(), envSkyMat = skyMat.clone();
+  envSkyMat.uniforms = skyU; envSkyMat.toneMapped = false; // lights the yacht in linear light; the main render tone-maps once
+  envScene.add(new THREE.Mesh(new THREE.SphereGeometry(10, 32, 16), envSkyMat));
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  let envRT = null;
+
+  const hemi = new THREE.HemisphereLight(0xdfe8ff, 0x2a3036, 0.35);
+  const sun = new THREE.DirectionalLight(0xffffff, 2.4);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.mapSize.set(4096, 4096);
+  Object.assign(sun.shadow.camera, { left: -60, right: 60, top: 60, bottom: -60, near: 100, far: 340 });
+  sun.shadow.camera.updateProjectionMatrix();
+  sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
+  scene.add(hemi, sun);
+
+  // calm water: a mirror under a sheet of river green that thins out towards the horizon (Fresnel),
+  // so the water looks dark at your feet and reflective in the distance
+  const mirror = new THREE.Reflector(new THREE.PlaneGeometry(4000, 4000), { color: 0x5f727b, textureWidth: 1024, textureHeight: 1024 });
+  mirror.rotation.x = -Math.PI / 2;
+  const waterMat = new THREE.ShaderMaterial({
+    transparent: true, depthWrite: false, uniforms: { uCol: { value: C("#0d3340") }, uTime: { value: 0 }, uNight: skyU.uNight, uSun: skyU.uSun, uSunCol: skyU.uSunCol },
+    vertexShader: "varying vec3 vW; void main(){ vW = (modelMatrix*vec4(position,1.)).xyz; gl_Position = projectionMatrix*viewMatrix*vec4(vW,1.); }",
+    // small wind ripples tilt the surface: they break up the mirror (more water colour where a wave faces you)
+    // and throw sparkles of sun
+    fragmentShader: `uniform vec3 uCol, uSun, uSunCol; uniform float uTime, uNight; varying vec3 vW;
+      void main(){
+        vec2 p = vW.xz, g = vec2(0.), k; float ph;
+        k = normalize(vec2(.3,1.));  ph = dot(p,k)*.35 + uTime*1.1; g += k*.35*.10*cos(ph);
+        k = normalize(vec2(-.8,.6)); ph = dot(p,k)*.8 + uTime*1.7;  g += k*.8*.035*cos(ph);
+        k = normalize(vec2(1.,.2));  ph = dot(p,k)*1.9 + uTime*2.6; g += k*1.9*.012*cos(ph);
+        k = normalize(vec2(-.2,-1.));ph = dot(p,k)*4.1 + uTime*3.9; g += k*4.1*.004*cos(ph);
+        vec3 n = normalize(vec3(-g.x, 1., -g.y)), v = normalize(cameraPosition - vW);
+        float f = .02 + .98*pow(1. - max(dot(n, v), 0.), 5.);
+        float glint = pow(max(dot(reflect(-v, n), normalize(uSun)), 0.), 900.) * smoothstep(-.05, .1, uSun.y);
+        // underwater lights: a cyan halo hugging the hull at night (hull ellipse: half beam ~8.8 m, half length ~49.5 m)
+        float zr = (vW.z + 2.)/49.5, d = abs(vW.x) - 8.8*sqrt(max(0., 1. - zr*zr));
+        float uw = exp(-d*d/5.) * (1. - smoothstep(.72, .95, abs(zr))) * smoothstep(.5, 1., uNight) * (.75 + .25*sin(vW.z*.9 + uTime*.8));
+        gl_FragColor = vec4(uCol + uSunCol*glint*6. + vec3(.1,.75,1.)*uw*1.1, max(clamp(1. - f*.95 + glint, .3, .92), uw*.75));
+      }`
+  });
+  const water = new THREE.Mesh(new THREE.PlaneGeometry(4000, 4000), waterMat);
+  water.rotation.x = -Math.PI / 2; water.position.y = 0.01;
+  scene.add(mirror, water);
+
+  // shortcut: textures and materials are copied from siam-sunset-river.html; move them into a shared boat-materials.js if the two drift apart
+  function canvasTex(w, h, draw) { const c = document.createElement("canvas"); c.width = w; c.height = h; draw(c.getContext("2d"), w, h); const t = new THREE.CanvasTexture(c); t.anisotropy = 8; return t; }
+  const deckMap = canvasTex(512, 512, (x, w, h) => {
+    const n = 32, pw = w / n;
+    for (let i = 0; i < n; i++) {
+      const lens = []; let sum = 0;
+      while (sum < h) { const L = h * (0.4 + Math.random() * 0.45); lens.push(L); sum += L; }
+      lens[lens.length - 1] -= sum - h;
+      if (lens.length > 1 && lens[lens.length - 1] < h * 0.15) lens[lens.length - 2] += lens.pop();
+      let y = Math.random() * h;
+      lens.forEach((L) => {
+        const t = 0.78 + Math.random() * 0.3, grain = [0, 1, 2].map(() => 2 + Math.random() * (pw - 4));
+        [y, y - h].forEach((y0) => {
+          x.fillStyle = "rgb(" + Math.round(156 * t) + "," + Math.round(106 * t) + "," + Math.round(68 * t) + ")"; x.fillRect(i * pw, y0, pw, L);
+          x.fillStyle = "rgba(60,35,18,.3)"; grain.forEach((g) => x.fillRect(i * pw + g, y0, 0.7, L));
+          x.fillStyle = "rgba(22,13,7,.9)"; x.fillRect(i * pw, y0 + L - 1.2, pw, 1.2);
+        });
+        y += L;
+      });
+      x.fillStyle = "rgba(22,13,7,.85)"; x.fillRect(i * pw, 0, 1.2, h);
+    }
+  });
+  const paneMap = canvasTex(512, 128, (x, w, h) => {
+    for (let k = 0; k < 4; k++) {
+      const X = k * 128, g = x.createLinearGradient(0, 0, 0, h);
+      g.addColorStop(0, "#3c4c5e"); g.addColorStop(1, "#141b23"); x.fillStyle = g; x.fillRect(X, 0, 128, h);
+      x.fillStyle = "rgba(230,214,190,.14)"; x.fillRect(X, 0, 14 + k * 4, h); x.fillRect(X + 114 - k * 4, 0, 14 + k * 4, h);
+    }
+  });
+  const paneEm = canvasTex(512, 128, (x, w, h) => {
+    for (let k = 0; k < 4; k++) {
+      const X = k * 128, g = x.createLinearGradient(0, 0, 0, h);
+      g.addColorStop(0, k === 3 ? "#a8875a" : "#fff1d6"); g.addColorStop(0.55, k === 2 ? "#f2c98a" : "#d39f62"); g.addColorStop(1, "#4a2f18");
+      x.fillStyle = g; x.fillRect(X, 0, 128, h);
+      const lamp = x.createRadialGradient(X + 64, 24, 1, X + 64, 24, 32); lamp.addColorStop(0, "#ffffff"); lamp.addColorStop(1, "rgba(255,255,255,0)");
+      x.fillStyle = lamp; x.fillRect(X, 0, 128, 64);
+      x.fillStyle = "rgba(18,9,4,.8)";
+      for (let p = 0; p < 3; p++) { const px = X + 24 + p * 38 + (k * 9) % 14, py = 84 + (p % 2) * 5; x.beginPath(); x.arc(px, py, 8, 0, Math.PI * 2); x.fill(); x.fillRect(px - 11, py + 8, 22, 40); }
+      const cw = [18, 34, 12, 22][k];
+      x.fillStyle = "rgba(70,12,8,.9)"; x.fillRect(X, 0, cw, h); x.fillRect(X + 128 - (k === 1 ? 10 : cw), 0, k === 1 ? 10 : cw, h);
+      if (k === 3) { x.fillStyle = "rgba(0,0,0,.35)"; for (let y = 4; y < 60; y += 8) x.fillRect(X, y, 128, 3); }
+    }
+  });
+  const flagTex = canvasTex(96, 64, (x, w, h) => { const s = [["#a51931", 1], ["#f4f5f8", 1], ["#2d2a4a", 2], ["#f4f5f8", 1], ["#a51931", 1]]; let y = 0; s.forEach(([c, n]) => { x.fillStyle = c; x.fillRect(0, y, w, n * h / 6); y += n * h / 6; }); });
+  new THREE.ImageLoader().load("wood-grain.jpg", (img) => { // real wood grain (Poly Haven "Oak Wood Planks", CC0) over the teak planks
+    const c = deckMap.image, x = c.getContext("2d");
+    x.save(); x.globalCompositeOperation = "overlay"; x.globalAlpha = 0.75;
+    x.translate(c.width, 0); x.rotate(Math.PI / 2); x.drawImage(img, 0, 0, c.height, c.width); // its planks run across: turn them along ours
+    x.restore(); deckMap.needsUpdate = true;
+  });
+  [deckMap, paneMap, paneEm].forEach((t) => { t.flipY = false; });
+  deckMap.wrapS = deckMap.wrapT = THREE.RepeatWrapping;
+
+  const M = {
+    hull: new THREE.MeshStandardMaterial({ color: "#f4efe4", roughness: 0.16 }),
+    super: new THREE.MeshStandardMaterial({ color: "#f4efe4", roughness: 0.22 }),
+    boot: new THREE.MeshStandardMaterial({ color: "#1d2740", roughness: 0.3 }),
+    stripe: new THREE.MeshStandardMaterial({ color: "#e2a93b", roughness: 0.3, metalness: 0.6, emissive: "#e2a93b", emissiveIntensity: 0 }),
+    deck: new THREE.MeshStandardMaterial({ map: deckMap, roughness: 0.75 }),
+    win: new THREE.MeshStandardMaterial({ map: paneMap, emissiveMap: paneEm, emissive: "#ffc77a", emissiveIntensity: 0.03, roughness: 0.05, metalness: 0.1, envMapIntensity: 0.45 }),
+    frame: new THREE.MeshStandardMaterial({ color: "#16191c", roughness: 0.35, metalness: 0.5 }),
+    rail: new THREE.MeshStandardMaterial({ color: "#d8d8d6", roughness: 0.18, metalness: 0.9 }),
+    cushion: new THREE.MeshStandardMaterial({ color: "#ece6da", roughness: 0.85 }),
+    table: new THREE.MeshStandardMaterial({ color: "#fbf7ee", roughness: 0.75 }),
+    chair: new THREE.MeshStandardMaterial({ color: "#3b2b20", roughness: 0.6 }),
+    rubber: new THREE.MeshStandardMaterial({ color: "#1b1b1d", roughness: 0.8 }),
+    skin: new THREE.MeshStandardMaterial({ color: "#b98466", roughness: 0.6 }),
+    bulb: new THREE.MeshBasicMaterial({ color: "#ffd88a" }),
+    flag: new THREE.MeshStandardMaterial({ map: flagTex, side: THREE.DoubleSide, roughness: 0.8 })
+  };
+  const D = {
+    trim: new THREE.MeshStandardMaterial({ color: "#e2b04a", roughness: 0.25, metalness: 0.9, emissive: "#e2b04a", emissiveIntensity: 0 }),
+    port: new THREE.MeshStandardMaterial({ color: "#10151b", roughness: 0.08, metalness: 0.1, envMapIntensity: 0.45, emissive: "#ffd28a", emissiveIntensity: 0 }),
+    glass: new THREE.MeshStandardMaterial({ color: "#cfe9ff", roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide }),
+    pool: new THREE.MeshStandardMaterial({ color: "#3fb6c9", roughness: 0.05, emissive: "#2fd3ff", emissiveIntensity: 0 }),
+    led: new THREE.MeshBasicMaterial({ color: "#ffd9a0" }),
+    red: new THREE.MeshBasicMaterial({ color: "#ff3b30" }),
+    green: new THREE.MeshBasicMaterial({ color: "#2bd96b" }),
+    white: new THREE.MeshBasicMaterial({ color: "#ffffff" })
+  };
+  const BY_NAME = {
+    Hull: M.hull, Super: M.super, Boot: M.boot, Accent: M.stripe, Deck: M.deck, Glass: M.win, Frame: M.frame, Steel: M.rail,
+    Cushion: M.cushion, Table: M.table, Chair: M.chair, Rubber: M.rubber, Skin: M.skin, Bulb: M.bulb, Gold: D.trim, Port: D.port,
+    GlassRail: D.glass, Water: D.pool, LED: D.led, NavRed: D.red, NavGreen: D.green, NavWhite: D.white
+  };
+
+  const boat = new THREE.Group();
+  scene.add(boat);
+  new THREE.GLTFLoader().load("boat.json", (gltf) => {
+    gltf.scene.traverse((o) => {
+      if (!o.isMesh) return;
+      o.material = BY_NAME[o.material.name] || o.material;
+      o.castShadow = o.receiveShadow = o.material.isMeshStandardMaterial && !o.material.transparent;
+    });
+    boat.add(gltf.scene);
+    status.textContent = "Drag to turn · scroll or pinch to zoom";
+  }, (e) => {
+    if (e.total) status.textContent = "Loading the yacht… " + Math.round(e.loaded / e.total * 100) + "%";
+  }, () => { status.textContent = "The yacht model did not load. Refresh the page to try again."; });
+  new THREE.TextureLoader().load("boat-ao.jpg", (t) => {
+    t.flipY = false;
+    [M.hull, M.super, M.boot, M.stripe, M.deck, M.frame, M.rail, M.cushion, M.table, M.chair, M.rubber, M.skin, D.trim].forEach((m) => { m.aoMap = t; m.needsUpdate = true; });
+  });
+
+  // the Thai flag on the stern staff, and soft glows round the navigation lights at night
+  const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1, 6, 1), M.flag);
+  flag.scale.setScalar(1.6); flag.position.set(0, 6.1, 47.95); flag.rotation.y = -Math.PI / 2; boat.add(flag);
+  const flagPos = flag.geometry.attributes.position, flagBase = flagPos.array.slice();
+  const glowTex = canvasTex(64, 64, (x, w) => { const g = x.createRadialGradient(32, 32, 0, 32, 32, 32); g.addColorStop(0, "rgba(255,255,255,1)"); g.addColorStop(0.2, "rgba(255,255,255,.5)"); g.addColorStop(1, "rgba(255,255,255,0)"); x.fillStyle = g; x.fillRect(0, 0, w, w); });
+  const glowGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(6.69, 14.15, -14.15), new THREE.Vector3(-6.69, 14.15, -14.15), new THREE.Vector3(0, 26.2, -1.0), new THREE.Vector3(0, 7.06, 46.7)]);
+  glowGeo.setAttribute("color", new THREE.Float32BufferAttribute([0.2, 1, 0.45, 1, 0.25, 0.2, 1, 1, 1, 1, 1, 1], 3));
+  const glow = new THREE.Points(glowGeo, new THREE.PointsMaterial({ map: glowTex, size: 3.0, vertexColors: true, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }));
+  boat.add(glow);
+  const lamps = [[0, 19.5, 5, 2.0, 30], [0, 6.8, 40, 2.0, 30], [0, 10.2, 34, 1.8, 30], [0, 13.5, 22, 1.8, 30], [0, 6.5, -36, 1.2, 30]].map(([x, y, z, max, dist]) => {
+    const l = new THREE.PointLight(0xffc27a, 0, dist, 1.5); l.position.set(x, y, z); l.userData.max = max; boat.add(l); return l;
+  });
+
+  // time of day
+  const TIMES = {
+    // sun direction measured from the photo's brightest pixel: 10 degrees up
+    sunset: { hdri: true, top: "#6d7f99", hor: "#e9b98a", sun: [0.79, 0.175, 0.584], sunCol: "#ffc890", sunI: 2.2, hemi: 0.12, water: "#1b2a2e", n: 0.3, exp: 1.0 },
+    day: { top: "#3f78b8", hor: "#dfe7ee", sun: [0.6, 0.5, 0.62], sunCol: "#fff2dc", sunI: 2.6, hemi: 0.55, water: "#0d3340", n: 0, exp: 1.05 },
+    night: { top: "#03050c", hor: "#151d33", sun: [-0.55, 0.45, -0.7], sunCol: "#8fa3e8", sunI: 0.22, hemi: 0.06, water: "#04121a", n: 1, exp: 1.3 }
+  };
+  function setTime(key) {
+    const t = TIMES[key], n = t.n;
+    skyU.uTop.value.set(t.top); skyU.uHor.value.set(t.hor); skyU.uSun.value.set(...t.sun); skyU.uSunCol.value.set(t.sunCol); skyU.uNight.value = t.n;
+    sun.position.set(...t.sun).multiplyScalar(200); sun.color.set(t.sunCol); sun.intensity = t.sunI;
+    hemi.intensity = t.hemi; waterMat.uniforms.uCol.value.set(t.water); renderer.toneMappingExposure = t.exp;
+    M.win.emissiveIntensity = 0.03 + 1.9 * n; D.port.emissiveIntensity = 1.8 * n; D.pool.emissiveIntensity = 0.9 * n;
+    D.trim.emissiveIntensity = 0.25 * n; M.stripe.emissiveIntensity = 0.35 * n;
+    D.led.color.setRGB(1, 0.85, 0.62).multiplyScalar(0.2 + 2.0 * n);
+    M.bulb.color.setRGB(1, 0.85, 0.54).multiplyScalar(0.75 + 2.4 * n);
+    D.red.color.setRGB(1, 0.23, 0.19).multiplyScalar(0.6 + 1.6 * n);
+    D.green.color.setRGB(0.17, 0.85, 0.42).multiplyScalar(0.6 + 1.6 * n);
+    D.white.color.setScalar(0.8 + 1.5 * n);
+    lamps.forEach((l) => { l.intensity = l.userData.max * n; });
+    glow.visible = n > 0.5;
+    curTime = key;
+    const photo = t.hdri && skyTex; // until the photo has loaded, the drawn sky stands in
+    skyDome.visible = !photo; scene.background = photo ? skyTex : null;
+    const rt = photo ? pmrem.fromEquirectangular(skyTex) : pmrem.fromScene(envScene, 0, 0.1, 100);
+    if (envRT) envRT.dispose();
+    envRT = rt; scene.environment = rt.texture;
+    $("#tSunset").setAttribute("aria-pressed", String(key === "sunset"));
+    $("#tDay").setAttribute("aria-pressed", String(key === "day"));
+    $("#tNight").setAttribute("aria-pressed", String(key === "night"));
+  }
+  $("#tSunset").addEventListener("click", () => setTime("sunset"));
+  $("#tDay").addEventListener("click", () => setTime("day"));
+  $("#tNight").addEventListener("click", () => setTime("night"));
+
+  // colour schemes: four of the fleet's own colour sets (light hull, boot stripe, pinstripes)
+  const SCHEMES = [
+    ["Ivory and gold", "#f4efe4", "#1d2740", "#e2a93b"],
+    ["White and blue", "#ffffff", "#b9c2cf", "#4f9ad6"],
+    ["Sand and amber", "#efe2c8", "#3d2a15", "#f29b2b"],
+    ["Black and silver", "#2c2c30", "#111113", "#d9d9de"]
+  ];
+  const swatches = SCHEMES.map(([name, hull, boot, accent], i) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "swatch"; b.id = "c" + i; b.title = name; b.setAttribute("aria-label", name);
+    b.setAttribute("aria-pressed", String(i === 0));
+    b.innerHTML = '<i style="background: linear-gradient(135deg, ' + hull + " 0 55%, " + accent + " 55% 70%, " + boot + ' 70%)"></i>';
+    b.addEventListener("click", () => {
+      M.hull.color.set(hull); M.super.color.set(hull); M.boot.color.set(boot); M.stripe.color.set(accent); M.stripe.emissive.set(accent);
+      swatches.forEach((s, k) => s.setAttribute("aria-pressed", String(k === i)));
+    });
+    $("#swatches").appendChild(b);
+    return b;
+  });
+
+  // camera views (yacht space: bow points to -z) and the turntable
+  const VIEWS = { bow: [[55, 20, -95], [0, 8, -10]], side: [[-115, 14, 0], [0, 9, 0]], stern: [[25, 16, 110], [0, 8, 20]], above: [[45, 110, 40], [0, 8, 0]] };
+  let tween = null;
+  const spinBtn = $("#spin");
+  function setSpin(on) { controls.autoRotate = on; spinBtn.setAttribute("aria-pressed", String(on)); }
+  spinBtn.addEventListener("click", () => setSpin(!controls.autoRotate));
+  document.querySelectorAll("[data-view]").forEach((b) => b.addEventListener("click", () => {
+    const [p, l] = VIEWS[b.dataset.view];
+    const l1 = new THREE.Vector3(...l), p1 = new THREE.Vector3(...p).sub(l1).multiplyScalar(fit).add(l1);
+    tween = { p0: camera.position.clone(), l0: controls.target.clone(), p1, l1, t: reduce ? 1 : 0 };
+    setSpin(false);
+    document.querySelectorAll("[data-view]").forEach((o) => o.setAttribute("aria-pressed", String(o === b)));
+  }));
+  controls.addEventListener("start", () => {
+    tween = null;
+    document.querySelectorAll("[data-view]").forEach((o) => o.setAttribute("aria-pressed", "false"));
+  });
+
+  function resize() {
+    const w = innerWidth, h = innerHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h; camera.updateProjectionMatrix();
+    const pr = renderer.getPixelRatio();
+    mirror.getRenderTarget().setSize(Math.round(w * pr / 2), Math.round(h * pr / 2));
+  }
+  addEventListener("resize", resize);
+  resize();
+  setTime("sunset");
+
+  let last = performance.now();
+  renderer.setAnimationLoop((now) => {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    if (tween) {
+      tween.t = Math.min(1, tween.t + dt / 0.9);
+      const e = tween.t * tween.t * (3 - 2 * tween.t);
+      camera.position.lerpVectors(tween.p0, tween.p1, e);
+      controls.target.lerpVectors(tween.l0, tween.l1, e);
+      if (tween.t === 1) tween = null;
+    }
+    if (!reduce) {
+      const t = now / 1000;
+      boat.position.y = Math.sin(t * 1.1) * 0.06;
+      for (let v = 0; v < flagPos.count; v++) { const x = flagBase[v * 3]; flagPos.setZ(v, Math.sin(t * 6 + x * 3) * 0.12 * (x + 0.75)); }
+      flagPos.needsUpdate = true;
+    }
+    waterMat.uniforms.uTime.value = now / 1000;
+    controls.update();
+    renderer.render(scene, camera);
+  });
+})();
+</script>

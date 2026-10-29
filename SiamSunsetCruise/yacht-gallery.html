@@ -1,0 +1,111 @@
+<title>Siam Sunset Photos</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chonburi&family=IBM+Plex+Sans+Thai+Looped:wght@400;500;600&display=swap">
+<style>
+  /* Layout: a dark photo-darkroom wall; one wide lead picture, the rest in a two-up grid; a lightbox for full size.
+     Single deliberate dark look (photos read best on ink), built from the cruise site's own tokens. */
+  :root {
+    --ink: #0a0e14;
+    --ink-2: #131924;
+    --paper: #f4ead9;
+    --muted: #a59d90;
+    --marigold: #f5a524;
+    --line: #262e3b;
+    --display: "Chonburi", Georgia, "Times New Roman", serif;
+    --body: "IBM Plex Sans Thai Looped", "Segoe UI", system-ui, sans-serif;
+    color-scheme: dark;
+  }
+  body { background: var(--ink); color: var(--paper); font-family: var(--body); font-size: 15px; line-height: 1.55; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding-block: 28px 48px;
+          padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+          display: grid; gap: 22px; }
+  header { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 14px 24px; }
+  h1 { font-family: var(--display); font-weight: 400; font-size: clamp(28px, 4.4vw, 44px); line-height: 1.1; margin: 0; text-wrap: balance; }
+  h1 span { color: var(--marigold); }
+  .sub { color: var(--muted); margin: 6px 0 0; max-width: 62ch; }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; background: var(--ink-2); }
+  .seg button { font: 500 14px var(--body); color: var(--paper); background: none; border: 0; border-radius: 999px; padding: 7px 16px; cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--paper); color: var(--ink); }
+  .seg button:focus-visible, a:focus-visible, figure button:focus-visible, dialog button:focus-visible { outline: 2px solid var(--marigold); outline-offset: 2px; }
+  a.viewer { color: var(--marigold); font-weight: 500; text-decoration: none; border-bottom: 1px solid currentColor; }
+  .grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  figure { margin: 0; min-width: 0; }
+  figure:first-child { grid-column: 1 / -1; }
+  figure button { display: block; width: 100%; padding: 0; border: 0; background: var(--ink-2); cursor: zoom-in; border-radius: 4px; overflow: hidden; }
+  figure img { display: block; width: 100%; height: auto; max-width: 100%; aspect-ratio: 16 / 9; object-fit: cover; transition: transform .5s ease; }
+  figure button:hover img { transform: scale(1.015); }
+  figcaption { display: flex; justify-content: space-between; gap: 12px; padding-top: 8px; font-size: 14px; }
+  figcaption b { font-weight: 600; }
+  figcaption span { color: var(--muted); text-align: right; }
+  .note { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 14px; max-width: 80ch; }
+  dialog { border: 0; padding: 0; background: transparent; max-width: min(96vw, 1920px); width: 100%; }
+  dialog::backdrop { background: rgba(5, 7, 10, .92); }
+  dialog img { display: block; width: 100%; max-height: 86vh; object-fit: contain; }
+  dialog .bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 2px; color: var(--paper); }
+  dialog button { font: 500 14px var(--body); color: var(--ink); background: var(--paper); border: 0; border-radius: 999px; padding: 7px 16px; cursor: pointer; }
+  @media (max-width: 900px) { figcaption { flex-direction: column; gap: 0; } figcaption span { text-align: left; } }
+  @media (max-width: 640px) { .grid { grid-template-columns: minmax(0, 1fr); } figcaption { flex-direction: column; gap: 0; } figcaption span { text-align: left; } }
+  @media (prefers-reduced-motion: reduce) { figure img { transition: none; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Siam <span>Sunset</span> photos</h1>
+      <p class="sub">The 101 m dinner-cruise yacht, rendered in Blender Cycles under a real photographed sunset sky. Four views, at golden hour and after dark.</p>
+    </div>
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Time of day">
+        <button type="button" id="tSunset" aria-pressed="true">Sunset</button>
+        <button type="button" id="tNight" aria-pressed="false">Night</button>
+      </div>
+      <a class="viewer" href="https://claude.ai/artifact/39JCkqiySiiUqoxWRdkb3R" target="_blank" rel="noopener">Turn it in 3D</a>
+    </div>
+  </header>
+
+  <div class="grid" id="grid"></div>
+
+  <p class="note">Renders from the yacht's own 3D model: 35 mm lens from a tender at water level, 512 samples per picture. The sky is Poly Haven's "Small Harbour Sunset" (CC0), so the hills behind are a stand-in for the Chao Phraya riverbank.</p>
+</div>
+
+<dialog id="box" aria-label="Full-size photo">
+  <img id="boxImg" alt="">
+  <div class="bar"><span id="boxCap"></span><button type="button" id="boxClose">Close</button></div>
+</dialog>
+
+<script>
+(function () {
+  "use strict";
+  const VIEWS = [
+    ["bow", "Bow three-quarter", "Helipad, five decks, guests on the dinner decks"],
+    ["side", "Broadside", "LOA 101 m, navy boot stripe, guest-cabin windows"],
+    ["stern", "Stern and beach club", "Swim platform, twin stairs, festoon lights"],
+    ["helipad", "Helipad", "Twin-engine helicopter on the raised bow pad"]
+  ];
+  const grid = document.getElementById("grid"), box = document.getElementById("box");
+  let time = "sunset";
+  function render() {
+    grid.innerHTML = "";
+    VIEWS.forEach(([id, name, detail]) => {
+      const src = "renders/" + time + "-" + id + ".jpg", alt = name + " of the Siam Sunset yacht at " + time;
+      const f = document.createElement("figure");
+      f.innerHTML = '<button type="button"><img loading="lazy" width="1920" height="1080"></button><figcaption><b></b><span></span></figcaption>';
+      const img = f.querySelector("img"); img.src = src; img.alt = alt;
+      f.querySelector("b").textContent = name; f.querySelector("span").textContent = detail;
+      f.querySelector("button").addEventListener("click", () => {
+        document.getElementById("boxImg").src = src; document.getElementById("boxImg").alt = alt;
+        document.getElementById("boxCap").textContent = name + " · " + (time === "sunset" ? "Sunset" : "Night");
+        box.showModal();
+      });
+      grid.appendChild(f);
+    });
+    ["sunset", "night"].forEach((t) => document.getElementById(t === "sunset" ? "tSunset" : "tNight").setAttribute("aria-pressed", String(t === time)));
+  }
+  document.getElementById("tSunset").addEventListener("click", () => { time = "sunset"; render(); });
+  document.getElementById("tNight").addEventListener("click", () => { time = "night"; render(); });
+  document.getElementById("boxClose").addEventListener("click", () => box.close());
+  box.addEventListener("click", (e) => { if (e.target === box) box.close(); });
+  render();
+})();
+</script>
