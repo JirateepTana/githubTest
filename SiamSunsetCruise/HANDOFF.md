@@ -74,9 +74,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File serve.ps1 -Root . -Port 8765
 Then open http://localhost:8765/yacht-preview.html, yacht-gallery.html or siam-sunset-river.html (file:// does not animate).
 
 ## Not done / next steps
-- **Main site still set for the 34 m yacht.** `siam-sunset-river.html` loads the new 101 m `boat.json`, so its camera keyframes,
-  flag position (now staff at (0, 6.1, 47.95) in page space), nav-light glows, warm lights and water pool/streak sizes are
-  all wrong scale. Its live artifact (1DwMwQKHi7pQns1X3RErZ4) still has the 34 m files.
+- Main site now fits the 101 m yacht. The camera keyframes are about 3× further out. Other changes:
+  - Flag and nav glows are at the yacht's real spots.
+  - The lights, water pool and wake are sized up, and the underwater halo hugs the hull.
+  - The bridge deck is raised to 34 m so the 26 m mast clears it.
+  - On phones the camera pulls back 1.7× and is kept over the river (|x| ≤ 78).
+  - Checked on desktop and phone. On phones, the boat-picker panel still covers the boat.
+  - Its live artifact (1DwMwQKHi7pQns1X3RErZ4) still has the old 34 m files. Republish it.
   Option the owner liked: use the Cycles renders on the site instead of, or next to, the live 3D.
 - Helipad close-up shows the helicopter and pad are still simple shapes. No glasses or candles on the tables, and no bow wake
   (the yacht is at anchor).

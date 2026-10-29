@@ -492,15 +492,16 @@ textarea { grid-column: 1 / -1; min-height: 132px; resize: vertical; }
         col += uSunCol * pow(max(dot(r,uSunDir),0.), 700.) * 5. * smoothstep(-.05,.05,uSunDir.y);
         float gl = pow(max(sin(p.x*.8 + t*.7)*sin(p.y*1.7 - t*1.5),0.), 30.);
         col += vec3(1.,.72,.4) * gl * uNight * 1.4 * smoothstep(18.,48.,abs(vW.x));
-        float wz = vW.z - 13.;
-        float wide = 2.6 + max(wz,0.)*.16;
-        float wake = exp(-pow(vW.x/wide, 2.)) * step(0., wz) * exp(-wz/55.);
-        wake += (exp(-pow((abs(vW.x) - (5. + max(wz,-30.)*.32))/1.2, 2.)) * exp(-abs(wz+20.)/55.)) * .6 * step(-30., wz);
+        float wz = vW.z - 46.;  // the stern; the bow is at wz = -97
+        float wide = 7. + max(wz,0.)*.16;
+        float wake = exp(-pow(vW.x/wide, 2.)) * step(0., wz) * exp(-wz/120.);
+        wake += (exp(-pow((abs(vW.x) - (2. + (wz+97.)*.32))/2.4, 2.)) * exp(-abs(wz+60.)/110.)) * .6 * step(-97., wz);
         float foam = .5 + .5*sin(vW.z*.9 - t*5. + vW.x*1.7);
         col = mix(col, vec3(.86,.9,.94)*(1. - .55*uNight), clamp(wake*foam*.45, 0., .6));
-        float pool = exp(-(pow(vW.x/6.,2.) + pow((vW.z-1.)/20.,2.)));
-        float streak = exp(-pow((abs(vW.x)-4.8)/1.8,2.)) * smoothstep(15.,7.,abs(vW.z-1.)) * (.55+.45*sin(vW.z*2.3 - t*2.6 + vW.x));
-        float under = exp(-(pow(vW.x/3.4,2.) + pow((vW.z-18.)/2.8,2.)));  // the yacht's underwater lights, off the swim platform
+        float pool = exp(-(pow(vW.x/18.,2.) + pow((vW.z+2.)/60.,2.)));
+        float streak = exp(-pow((abs(vW.x)-9.4)/3.,2.)) * smoothstep(45.,24.,abs(vW.z+2.)) * (.55+.45*sin(vW.z*.8 - t*2.6 + vW.x*.4));
+        float he = length(vec2(vW.x/8.8, (vW.z+2.)/49.5));
+        float under = exp(-pow((he-1.08)*9.,2.));  // the yacht's underwater lights: a halo hugging the hull
         col += vec3(1.,.72,.42) * uNight * (pool*.4 + streak*.5) + vec3(.12,.7,1.) * uNight * under * 1.2;
         float bankRef = smoothstep(28.,70.,abs(vW.x)) * (1. - smoothstep(82.,86.,abs(vW.x)));
         float city = pow(vnoise(vec2(p.y*.12, floor(vW.x*.6))), 3.) * (.6 + .4*sin(vW.x*2.7 + t*3.));
@@ -522,13 +523,13 @@ textarea { grid-column: 1 / -1; min-height: 132px; resize: vertical; }
   moon.position.set(55, 42, -72);
   scene.add(hemi, sun, moon);
   [hemi, sun, moon].forEach((l) => l.layers.enable(1)); // layer 1 = what the water mirrors (these lights + the boat)
-  scene.fog = new THREE.Fog(0xf6d3a4, 170, 1000);
+  scene.fog = new THREE.Fog(0xf6d3a4, 300, 1200);
   // only the boat casts and receives shadows; this box just covers it
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
-  Object.assign(sun.shadow.camera, { left: -24, right: 24, top: 24, bottom: -24, near: 40, far: 170 });
+  Object.assign(sun.shadow.camera, { left: -60, right: 60, top: 60, bottom: -60, near: 100, far: 340 });
   sun.shadow.camera.updateProjectionMatrix();
-  sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.03;
+  sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.06;
 
   // textures
   function canvasTex(w, h, draw) {
@@ -639,8 +640,7 @@ textarea { grid-column: 1 / -1; min-height: 132px; resize: vertical; }
   });
 
   // the Thai flag on the ensign staff at the stern (boat space: bow points to -z)
-  const staffTop = P3(2.7, 3.4, 14.35);
-  const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1, 6, 1), M.flag); flag.position.set(staffTop.x, staffTop.y - 0.55, staffTop.z + 0.78); flag.rotation.y = -Math.PI / 2; boat.add(flag);
+  const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1, 6, 1), M.flag); flag.scale.setScalar(1.6); flag.position.set(0, 6.1, 47.95); flag.rotation.y = -Math.PI / 2; boat.add(flag);
   const flagPos = flag.geometry.attributes.position, flagBase = flagPos.array.slice();
 
   // night glow round the navigation lights: additive sprites, faded in with the dark
@@ -653,12 +653,12 @@ textarea { grid-column: 1 / -1; min-height: 132px; resize: vertical; }
     return pts3;
   }
   const glows = [
-    glowPoints([P3(3.13, 6.27, -3.08), P3(-3.13, 6.27, -3.08), P3(0, 9.82, 0.6), P3(2.7, 3.44, 14.35)],
-      [[0.2, 1, 0.45], [1, 0.25, 0.2], [1, 1, 1], [1, 1, 1]], 1.6)
+    glowPoints([P3(6.69, 14.15, -14.15), P3(-6.69, 14.15, -14.15), P3(0, 26.2, -1.0), P3(0, 7.06, 46.7)],
+      [[0.2, 1, 0.45], [1, 0.25, 0.2], [1, 1, 1], [1, 1, 1]], 4)
   ];
 
-  const boatLight = new THREE.PointLight(0xffc27a, 0, 20, 1.4); boatLight.position.set(0, 7.6, 2.5); boat.add(boatLight);
-  const deckLight = new THREE.PointLight(0xffb070, 0, 22, 1.6); deckLight.position.set(0, 3.3, 9.5); boat.add(deckLight);
+  const boatLight = new THREE.PointLight(0xffc27a, 0, 60, 1.4); boatLight.position.set(0, 20, -4); boat.add(boatLight);
+  const deckLight = new THREE.PointLight(0xffb070, 0, 66, 1.6); deckLight.position.set(0, 10, 30); boat.add(deckLight);
 
   // palette swap (eases toward target): hull and superstructure take the boat's light colour, the boot stripe its dark one
   const pal = { stripe: C("#e2a93b"), wall: C("#f4efe4"), roof: C("#1d2740") };
@@ -744,19 +744,19 @@ textarea { grid-column: 1 / -1; min-height: 132px; resize: vertical; }
   // Rama VIII-style cable bridge
   const bridgeZ = -400;
   const bridgeMat = new THREE.MeshStandardMaterial({ color: "#d8d2c4", roughness: 0.6 });
-  const deck = new THREE.Mesh(new THREE.BoxGeometry(420, 1.6, 8), bridgeMat); deck.position.set(0, 16, bridgeZ); world.add(deck);
-  const pylon = new THREE.Mesh(new THREE.BoxGeometry(3.6, 82, 3.6), bridgeMat); pylon.position.set(-96, 41, bridgeZ); world.add(pylon);
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(420, 1.6, 8), bridgeMat); deck.position.set(0, 34, bridgeZ); world.add(deck);
+  const pylon = new THREE.Mesh(new THREE.BoxGeometry(3.6, 110, 3.6), bridgeMat); pylon.position.set(-96, 55, bridgeZ); world.add(pylon);
   const cablePts = [];
   for (let i = 0; i < 14; i++) {
-    const py = 46 + i * 2.6;
-    cablePts.push(-96, py, bridgeZ - 1, -86 + i * 12, 16.8, bridgeZ - 3.6, -96, py, bridgeZ + 1, -86 + i * 12, 16.8, bridgeZ + 3.6);
-    cablePts.push(-96, py, bridgeZ, -104 - i * 5, 16.8, bridgeZ);
+    const py = 64 + i * 3.2;
+    cablePts.push(-96, py, bridgeZ - 1, -86 + i * 12, 34.8, bridgeZ - 3.6, -96, py, bridgeZ + 1, -86 + i * 12, 34.8, bridgeZ + 3.6);
+    cablePts.push(-96, py, bridgeZ, -104 - i * 5, 34.8, bridgeZ);
   }
   const cableGeo = new THREE.BufferGeometry(); cableGeo.setAttribute("position", new THREE.Float32BufferAttribute(cablePts, 3));
   const cableMat = new THREE.LineBasicMaterial({ color: "#e8e2d4" });
   world.add(new THREE.LineSegments(cableGeo, cableMat));
   const deckLights = new THREE.InstancedMesh(new THREE.SphereGeometry(0.35, 6, 4), LIGHT_WARM, 80);
-  for (let i = 0; i < 40; i++) [-4, 4].forEach((dz, j) => { tmp.position.set(-200 + i * 10, 17.4, bridgeZ + dz); tmp.updateMatrix(); deckLights.setMatrixAt(i * 2 + j, tmp.matrix); });
+  for (let i = 0; i < 40; i++) [-4, 4].forEach((dz, j) => { tmp.position.set(-200 + i * 10, 35.4, bridgeZ + dz); tmp.updateMatrix(); deckLights.setMatrixAt(i * 2 + j, tmp.matrix); });
   world.add(deckLights);
 
   // ---------- time of day ----------
@@ -779,14 +779,15 @@ textarea { grid-column: 1 / -1; min-height: 132px; resize: vertical; }
 
   // ---------- camera keyframes (boat space, bow points to -z) ----------
   const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  // sized for the 101 m yacht (hull z -51..47, beam 16, mast top 26 m)
   const CAM = [
-    { p: V(27, 9, 27),   l: V(0, 4.5, -3) },
-    { p: V(-25, 5.5, 12),l: V(0, 4.5, 0) },
-    { p: V(6, 4.5, 36),  l: V(2, 7, -30) },
-    { p: V(13, 21, 15),  l: V(0, 7, 0) },
-    { p: V(-21, 6, -31), l: V(0, 8, 4) },
-    { p: V(23, 7.5, -21),l: V(0, 5, 2) },
-    { p: V(0, 30, 50),   l: V(0, 5, -24) }
+    { p: V(62, 20, 58),   l: V(0, 11, -8) },
+    { p: V(-74, 14, 32),  l: V(0, 12, -2) },
+    { p: V(16, 12, 104),  l: V(4, 18, -90) },
+    { p: V(38, 60, 42),   l: V(0, 16, -2) },
+    { p: V(-62, 16, -96), l: V(0, 18, 10) },
+    { p: V(68, 20, -66),  l: V(0, 12, 4) },
+    { p: V(0, 80, 150),   l: V(0, 12, -70) }
   ];
   const camPos = V(0, 0, 0), camLook = V(0, 0, 0);
 
@@ -868,7 +869,7 @@ textarea { grid-column: 1 / -1; min-height: 132px; resize: vertical; }
     skyU.uTop.value.copy(tc.top); skyU.uHor.value.copy(tc.hor); skyU.uSunCol.value.copy(tc.sc); skyU.uNight.value = tod.n;
     waterU.uDeep.value.copy(tc.deep); waterU.uTime.value = t;
     updateEnv(minutes);
-    sun.position.copy(skyU.uSunDir.value).multiplyScalar(100); sun.color.copy(tc.sc); sun.intensity = tod.si;
+    sun.position.copy(skyU.uSunDir.value).multiplyScalar(200); sun.color.copy(tc.sc); sun.intensity = tod.si;
     hemi.color.copy(tc.top).lerp(C("#ffffff"), 0.35); hemi.intensity = 0.32 + 0.6 * (1 - tod.n);
     moon.intensity = 0.35 * tod.n;
     scene.fog.color.copy(tc.hor);
@@ -918,7 +919,7 @@ textarea { grid-column: 1 / -1; min-height: 132px; resize: vertical; }
     if (!dragging) { yawV *= 0.94; yaw += yawV; if (!reduce) yaw += dt * 0.05 * heroW; yaw *= 1 - (1 - heroW) * 0.04; }
     const ang = yaw * (0.25 + 0.75 * heroW);
     tmpV.copy(camPos); camPos.x = tmpV.x * Math.cos(ang) + tmpV.z * Math.sin(ang); camPos.z = -tmpV.x * Math.sin(ang) + tmpV.z * Math.cos(ang);
-    if (narrow) { camPos.multiplyScalar(2.2); camLook.y -= 2; } // tall phone sees ~1/3 of desktop width, so pull back further
+    if (narrow) { camPos.multiplyScalar(1.7); camPos.x = clamp(camPos.x, -78, 78); camLook.y -= 6; } // tall phone sees ~1/3 of desktop width, so pull back further, but stay over the river
     camera.position.copy(camPos); camera.lookAt(camLook);
     sky.position.copy(camera.position);
 
