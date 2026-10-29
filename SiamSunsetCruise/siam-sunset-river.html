@@ -1,0 +1,941 @@
+<title>Siam Sunset Cruise</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chonburi&family=IBM+Plex+Sans+Thai+Looped:wght@300;400;500;600&display=swap">
+<style>
+/* Layout: one fixed WebGL river behind the page; scrolling moves the river clock 16:30 → 21:45; glass panels ride on top. Single deliberate dark look. */
+:root {
+  --ink: #0a0e14;
+  --paper: #f4ead9;
+  --muted: #c9bfae;
+  --marigold: #f5a524;
+  --lotus: #ef93ae;
+  --panel: rgba(9, 13, 20, 0.68);
+  --panel-strong: rgba(9, 13, 20, 0.84);
+  --line: rgba(244, 234, 217, 0.16);
+  --display: "Chonburi", "Noto Serif Thai", Georgia, serif;
+  --body: "IBM Plex Sans Thai Looped", "Noto Sans Thai", system-ui, sans-serif;
+  color-scheme: dark;
+}
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body {
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--body);
+  font-size: 17px;
+  line-height: 1.65;
+  overflow-x: hidden;
+}
+#gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: pan-y; cursor: grab; z-index: 0; }
+#gl:active { cursor: grabbing; }
+.no-gl body { background: radial-gradient(120% 80% at 70% 20%, #3b2a4a, var(--ink)); }
+
+.top {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 5;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding-top: calc(14px + env(safe-area-inset-top, 0px));
+  padding-bottom: 14px;
+  padding-left: max(20px, env(safe-area-inset-left, 0px));
+  padding-right: max(20px, env(safe-area-inset-right, 0px));
+  pointer-events: none;
+}
+.top > * { pointer-events: auto; }
+.brand { font-family: var(--display); font-size: 19px; letter-spacing: 0.01em; color: var(--paper); text-shadow: 0 1px 12px rgba(0,0,0,.45); }
+.brand span { color: var(--marigold); }
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 46px; padding: 0 22px; border-radius: 999px;
+  font: 500 16px/1 var(--body); text-decoration: none; cursor: pointer; border: 0;
+  transition: transform .2s ease, background .2s ease;
+}
+.btn:hover { transform: translateY(-1px); }
+.btn:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible { outline: 2px solid var(--marigold); outline-offset: 3px; }
+.btn-gold { background: var(--marigold); color: #1b1206; }
+.btn-ghost { background: rgba(244,234,217,.08); color: var(--paper); border: 1px solid var(--line); }
+
+/* the river clock: the page's one big type moment */
+.clock {
+  position: fixed; z-index: 2; pointer-events: none;
+  right: max(20px, env(safe-area-inset-right, 0px)); align-items: flex-end;
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column; line-height: 1;
+  text-shadow: 0 2px 24px rgba(0,0,0,.5);
+}
+.clock-label { font-size: 13px; letter-spacing: .14em; color: var(--muted); margin-bottom: 10px; }
+#clock { font-family: var(--display); font-size: clamp(64px, 10vw, 148px); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; }
+#clockSub { font-size: 15px; color: var(--marigold); margin-top: 10px; }
+
+.rail {
+  position: fixed; z-index: 4; right: max(20px, env(safe-area-inset-right, 0px)); top: 50%; transform: translateY(-50%);
+  display: flex; flex-direction: column; gap: 4px;
+}
+.rail button {
+  display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+  background: none; border: 0; color: var(--muted); cursor: pointer;
+  font: 400 13px/1 var(--body); min-height: 34px; padding: 0 2px;
+  text-shadow: 0 1px 10px rgba(0,0,0,.6);
+}
+.rail button i { width: 22px; height: 2px; background: currentColor; opacity: .5; transition: width .3s ease, opacity .3s; }
+.rail button[aria-current="true"] { color: var(--paper); }
+.rail button[aria-current="true"] i { width: 44px; opacity: 1; background: var(--marigold); }
+.rail time { font-variant-numeric: tabular-nums; opacity: .7; }
+
+main { position: relative; z-index: 3; pointer-events: none; }
+.ch {
+  min-height: 125vh;
+  display: flex; align-items: center;
+  padding-block: 16vh;
+  padding-left: max(20px, env(safe-area-inset-left, 0px));
+  padding-right: max(20px, env(safe-area-inset-right, 0px));
+}
+.ch.right { justify-content: flex-end; }
+.ch.right .panel { margin-right: clamp(0px, 9vw, 150px); }
+.ch.left .panel { margin-left: clamp(0px, 3vw, 40px); }
+.ch:last-child { min-height: 100vh; }
+.panel {
+  pointer-events: auto;
+  width: 100%; max-width: 480px; min-width: 0;
+  background: var(--panel);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2); backdrop-filter: blur(14px) saturate(1.2);
+  border: 1px solid var(--line);
+  border-radius: 26px;
+  padding: 30px 30px 32px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.panel.wide { max-width: 620px; }
+.eyebrow { font-size: 13px; letter-spacing: .16em; color: var(--marigold); display: flex; gap: 10px; align-items: baseline; }
+.eyebrow time { font-family: var(--display); font-size: 20px; letter-spacing: 0; color: var(--paper); }
+h1, h2 { font-family: var(--display); font-weight: 400; margin: 0; text-wrap: balance; line-height: 1.22; }
+h1 { font-size: clamp(40px, 5.2vw, 72px); }
+h2 { font-size: clamp(30px, 3.6vw, 44px); }
+p { margin: 0; color: var(--muted); max-width: 62ch; }
+.hero-panel { background: var(--panel-strong); }
+.row { display: flex; flex-wrap: wrap; gap: 10px; }
+.hint { font-size: 14px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.hint svg { flex: 0 0 auto; }
+
+.piers { display: grid; gap: 0; border-top: 1px solid var(--line); }
+.piers div { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.piers b { font-weight: 500; color: var(--paper); }
+.piers span { color: var(--muted); font-size: 15px; text-align: right; }
+
+.dishes { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.dish { border: 1px solid var(--line); border-radius: 16px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; }
+.dish b { font-weight: 500; color: var(--paper); }
+.dish span { font-size: 14px; color: var(--muted); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip {
+  min-height: 40px; padding: 0 16px; border-radius: 999px; cursor: pointer;
+  font: 400 15px/1 var(--body); color: var(--paper);
+  background: transparent; border: 1px solid var(--line);
+}
+.chip[aria-pressed="true"] { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+.fleet { display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow-y: auto; padding-right: 4px; }
+.boat-row {
+  display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; align-items: center; gap: 14px;
+  width: 100%; min-height: 60px; padding: 10px 16px; border-radius: 16px; cursor: pointer; text-align: left;
+  background: rgba(244,234,217,.03); border: 1px solid var(--line); color: var(--paper); font: inherit;
+}
+.boat-row[aria-pressed="true"] { border-color: var(--marigold); background: rgba(245,165,36,.1); }
+.boat-row .dot { width: 14px; height: 14px; border-radius: 50%; box-shadow: 0 0 0 2px rgba(244,234,217,.25); }
+.boat-row b { display: block; font-weight: 500; font-size: 16px; }
+.boat-row small { display: block; color: var(--muted); font-size: 13px; }
+.boat-row .price { font-family: var(--display); font-size: 20px; font-variant-numeric: tabular-nums; }
+.detail { border-top: 1px solid var(--line); padding-top: 16px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.detail div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.detail span { font-size: 12px; letter-spacing: .08em; color: var(--muted); }
+.detail b { font-weight: 500; font-size: 15px; }
+.food-line { font-size: 15px; color: var(--paper); }
+
+form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); letter-spacing: .04em; }
+input, select, textarea {
+  font: 400 16px/1.4 var(--body); color: var(--paper);
+  background: rgba(244,234,217,.06); border: 1px solid var(--line); border-radius: 12px;
+  min-height: 46px; padding: 8px 12px; width: 100%; box-sizing: border-box;
+}
+select option { background: #141a24; color: var(--paper); }
+textarea { grid-column: 1 / -1; min-height: 132px; resize: vertical; }
+.full { grid-column: 1 / -1; }
+.contact { font-size: 15px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 6px 18px; }
+.contact b { color: var(--paper); font-weight: 500; user-select: all; }
+.fine { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; }
+.toast { font-size: 14px; color: var(--marigold); min-height: 20px; }
+
+@media (max-width: 760px) {
+  .rail { display: none; }
+  .clock { left: auto; right: max(16px, env(safe-area-inset-right, 0px)); bottom: auto; top: calc(70px + env(safe-area-inset-top, 0px)); align-items: flex-end; }
+  #clock { font-size: 44px; }
+  .clock-label { font-size: 11px; margin-bottom: 6px; }
+  #clockSub { font-size: 13px; margin-top: 6px; }
+  .ch, .ch.right { align-items: flex-end; justify-content: center; padding-block: 50vh 6vh; min-height: 130vh; }
+  .ch:first-child { padding-top: 46vh; }
+  .ch.right .panel, .ch.left .panel { margin: 0; }
+  .panel { padding: 22px 20px 24px; border-radius: 22px; }
+  .detail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  form { grid-template-columns: minmax(0, 1fr); }
+  .brand { font-size: 16px; }
+  .top .btn { min-height: 42px; padding: 0 16px; font-size: 15px; }
+}
+</style>
+
+<canvas id="gl" aria-label="เรือดินเนอร์ 3 มิติ บนแม่น้ำเจ้าพระยา ลากเพื่อหมุนดูรอบลำ" role="img"></canvas>
+
+<header class="top">
+  <div class="brand">Siam <span>Sunset</span> Cruise</div>
+  <a class="btn btn-gold" href="https://line.me/R/ti/p/@siamsunsetcruise" target="_blank" rel="noopener">ทัก LINE</a>
+</header>
+
+<div class="clock" aria-hidden="true">
+  <span class="clock-label">เวลาบนแม่น้ำ</span>
+  <span id="clock">16:30</span>
+  <span id="clockSub">แดดบ่าย</span>
+</div>
+
+<nav class="rail" aria-label="ช่วงเวลาของการล่องเรือ" id="rail"></nav>
+
+<main>
+  <section class="ch left" id="start" data-min="990" data-name="ออกเรือ" data-side="left">
+    <div class="panel hero-panel">
+      <div class="eyebrow">ล่องเรือดินเนอร์ · แม่น้ำเจ้าพระยา</div>
+      <h1>หนึ่งคืนบนแม่น้ำ<br>เริ่มตอน 16:30</h1>
+      <p>เลื่อนลงเพื่อออกเรือ นาฬิกาจะเดินไปกับคุณ ตั้งแต่แดดบ่าย ฟ้าสีส้ม จนไฟเปิดทั้งเมือง แล้วค่อยเลือกเรือจาก 9 ลำที่เราเทียบไว้ให้</p>
+      <div class="row">
+        <a class="btn btn-gold" href="https://line.me/R/ti/p/@siamsunsetcruise" target="_blank" rel="noopener">จองโต๊ะทาง LINE</a>
+        <a class="btn btn-ghost" href="#choose">ดูเรือ 9 ลำ</a>
+      </div>
+      <div class="hint"><svg width="22" height="14" viewBox="0 0 22 14" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M5 2 1 7l4 5M17 2l4 5-4 5M1 7h20"/></svg>ลากที่เรือเพื่อหมุนดูรอบลำ</div>
+    </div>
+  </section>
+
+  <section class="ch right" id="board" data-min="1005" data-name="ขึ้นเรือ" data-side="right">
+    <div class="panel">
+      <div class="eyebrow"><time>16:45</time> ขึ้นเรือ</div>
+      <h2>ขึ้นได้จาก 3 ท่าเรือ</h2>
+      <p>รอบเย็นออกเรือ 16:30 – 17:00 แล้วแต่ลำ มาถึงท่าก่อนเวลาสัก 30 นาที</p>
+      <div class="piers">
+        <div><b>ICONSIAM</b><span>5 ลำ · อลังกา, แซฟฟรอน, ปริ้นเซส, เมอริเดียน, สไมล์</span></div>
+        <div><b>Asiatique</b><span>3 ลำ · รอยัล กาแลคซี่, วีวา อลังกา, ไวท์ ออร์คิด</span></div>
+        <div><b>River City Bangkok</b><span>1 ลำ · วันเดอร์ฟูล เพิร์ล</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="ch left" id="sunset" data-min="1070" data-name="ตะวันตก" data-side="left">
+    <div class="panel">
+      <div class="eyebrow"><time>17:50</time> พระอาทิตย์ตก</div>
+      <h2>ฟ้าสวยที่สุด<br>ช่วง 17:00 – 18:30</h2>
+      <p>เรือรอบเย็นล่องผ่านวัดอรุณตอนฟ้าเปลี่ยนสีพอดี ถ้าอยากได้รูปสวย บอกเราตอนจองว่าขอโต๊ะริมน้ำบนดาดฟ้า</p>
+    </div>
+  </section>
+
+  <section class="ch right" id="dinner" data-min="1140" data-name="ดินเนอร์" data-side="right">
+    <div class="panel">
+      <div class="eyebrow"><time>19:00</time> ดินเนอร์</div>
+      <h2>บนโต๊ะมีอะไรบ้าง</h2>
+      <div class="dishes">
+        <div class="dish"><b>กุ้งแม่น้ำเผาไม่อั้น</b><span>รอยัล กาแลคซี่ · อลังกา · วีวา อลังกา</span></div>
+        <div class="dish"><b>แซลมอนซาซิมิ</b><span>รอยัล กาแลคซี่ · สไมล์ ริเวอร์ไซด์</span></div>
+        <div class="dish"><b>ไทยไฟน์ไดนิ่ง 4 คอร์ส</b><span>แซฟฟรอน ครูซ โดยบันยันทรี</span></div>
+        <div class="dish"><b>ซีฟู้ดออนไอซ์</b><span>วันเดอร์ฟูล เพิร์ล</span></div>
+        <div class="dish"><b>การแสดงโขน</b><span>อลังกา ครูซ</span></div>
+        <div class="dish"><b>แซกโซโฟน · คาบาเรต์</b><span>ปริ้นเซส · ไวท์ ออร์คิด</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="ch left" id="lights" data-min="1230" data-name="ไฟทั้งเมือง" data-side="left">
+    <div class="panel">
+      <div class="eyebrow"><time>20:30</time> ไฟทั้งเมือง</div>
+      <h2>รอบค่ำ ไฟเปิดทั้งสองฝั่ง</h2>
+      <p>รอบค่ำออกเรือ 19:00 – 20:00 กลับถึงท่าราว 21:00 – 22:00 เห็นวัดอรุณเปิดไฟ ไอคอนสยาม และหลายลำล่องไปถึงสะพานพระราม 8</p>
+    </div>
+  </section>
+
+  <section class="ch right" id="choose" data-min="1275" data-name="เลือกเรือ" data-side="right">
+    <div class="panel wide">
+      <div class="eyebrow">เลือกเรือ · เรือ 3D จะเปลี่ยนสีตามลำที่เลือก</div>
+      <h2 id="selName">รอยัล กาแลคซี่ ครูซ</h2>
+      <div class="chips" id="chips" role="group" aria-label="กรองตามท่าเรือ"></div>
+      <div class="fleet" id="fleet"></div>
+      <div class="detail" id="detail"></div>
+      <div class="food-line" id="food"></div>
+    </div>
+  </section>
+
+  <section class="ch left" id="book" data-min="1305" data-name="จองโต๊ะ" data-side="left">
+    <div class="panel wide">
+      <div class="eyebrow"><time>21:45</time> ถึงท่า · จองโต๊ะ</div>
+      <h2>บอกเรา 4 อย่าง แล้วส่งทาง LINE</h2>
+      <p>กรอกด้านล่าง เราจะเขียนข้อความให้ กดคัดลอกแล้ววางในแชต LINE ทีมงานเลือกโต๊ะริมน้ำมุมดีที่สุดให้ฟรี ราคาเท่าหน้าท่าเรือ</p>
+      <form id="bookForm">
+        <label for="fDate">วันที่<input id="fDate" type="date"></label>
+        <label for="fRound">รอบ<select id="fRound"><option>รอบพระอาทิตย์ตก</option><option>รอบค่ำชมวิวไฟ</option></select></label>
+        <label for="fPeople">จำนวนคน<select id="fPeople"><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>8</option><option>10+</option></select></label>
+        <label for="fBoat">เรือ<select id="fBoat"></select></label>
+        <label for="fMsg" class="full">ข้อความที่จะส่ง<textarea id="fMsg" readonly></textarea></label>
+        <div class="row full">
+          <button type="submit" class="btn btn-gold">คัดลอกข้อความ</button>
+          <a class="btn btn-ghost" href="https://line.me/R/ti/p/@siamsunsetcruise" target="_blank" rel="noopener">เปิด LINE @siamsunsetcruise</a>
+        </div>
+        <div class="toast full" id="toast" role="status"></div>
+      </form>
+      <div class="contact"><span>LINE <b>@siamsunsetcruise</b></span><span>โทร <b>089-777-6655</b></span></div>
+      <div class="fine">เปิดทุกวัน 08:30 – 22:30 น. · ใบอนุญาตประกอบธุรกิจนำเที่ยว ททท. 11/09988</div>
+    </div>
+  </section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  // ---------- fleet data (from the current site) ----------
+  const BOATS = [
+    { th: "รอยัล กาแลคซี่ ครูซ", pier: "Asiatique", decks: "3 ชั้น", seats: "550", rate: "4.9", price: "890", sunset: "17:00 – 18:45", dinner: "20:00 – 22:00", food: "กุ้งแม่น้ำเผาร้อนๆ, แซลมอนซาซิมิสดไม่อั้น", note: "ดาดฟ้าเปิดโล่ง 360°", c: ["#141b2e", "#e2a93b", "#f4efe4", "#1d2740"] },
+    { th: "อลังกา ครูซ", pier: "ICONSIAM", decks: "3 ชั้น", seats: "480", rate: "4.8", price: "790", sunset: "17:00 – 18:45", dinner: "19:15 – 21:15", food: "กุ้งแม่น้ำเผาไม่อั้น, หอยแมลงภู่นิวซีแลนด์", note: "ซีฟู้ด + การแสดงโขน", c: ["#3b0d12", "#e0b04a", "#fbefd8", "#5a1a1f"] },
+    { th: "แซฟฟรอน ครูซ", pier: "ICONSIAM", decks: "2 ชั้น", seats: "120", rate: "5.0", price: "1,250", sunset: "17:00 – 18:30", dinner: "19:00 – 21:00", food: "พล่ากุ้งลายเสือดอกบัวหลวง, ต้มยำกุ้งมังกรสูตรโบราณ", note: "ไทยไฟน์ไดนิ่ง โดยบันยันทรี", c: ["#2a1a0a", "#f29b2b", "#efe2c8", "#3d2a15"] },
+    { th: "วันเดอร์ฟูล เพิร์ล", pier: "River City", decks: "3 ชั้น", seats: "500", rate: "4.8", price: "950", sunset: "16:30 – 18:30", dinner: "19:30 – 21:30", food: "ซีฟู้ดออนไอซ์ ปูม้าและกุ้งแม่น้ำ, สเต๊กแซลมอนซอสเนยมะนาว", note: "มีบันไดเลื่อนในเรือ", c: ["#eef0f3", "#4f9ad6", "#ffffff", "#b9c2cf"] },
+    { th: "วีวา อลังกา ครูซ", pier: "Asiatique", decks: "3 ชั้น", seats: "450", rate: "4.7", price: "699", sunset: "16:45 – 18:45", dinner: "19:45 – 21:45", food: "กุ้งแม่น้ำเผาน้ำจิ้มรสจัด, ปลาหมึกนึ่งมะนาว", note: "ราคาคุ้มที่สุด", c: ["#0f3b2f", "#7ed957", "#f3f7ef", "#164a3c"] },
+    { th: "เจ้าพระยา ปริ้นเซส", pier: "ICONSIAM", decks: "2 ชั้น", seats: "400", rate: "4.8", price: "790", sunset: "17:00 – 18:30", dinner: "19:30 – 21:30", food: "บาร์บีคิวซีฟู้ด กุ้งเผา, แซลมอนสดนำเข้า", note: "ดนตรีสดแซกโซโฟน", c: ["#f7f4f5", "#e05a8a", "#fff8fa", "#e9cdd6"] },
+    { th: "เมอริเดียน ครูซ", pier: "ICONSIAM", decks: "2 ชั้น", seats: "350", rate: "4.8", price: "750", sunset: "16:45 – 18:45", dinner: "19:45 – 21:45", food: "กุ้งแม่น้ำเผาคัดขนาดพิเศษ, หอยแมลงภู่อบชีส", note: "โมเดิร์น ถ่ายรูปสวย", c: ["#1a1a1c", "#d9d9de", "#2c2c30", "#111113"] },
+    { th: "ไวท์ ออร์คิด", pier: "Asiatique", decks: "3 ชั้น", seats: "480", rate: "4.7", price: "790", sunset: "17:00 – 18:45", dinner: "19:45 – 21:45", food: "กุ้งแม่น้ำเผาและหอยแมลงภู่, สเต๊กหมูพริกไทยดำ", note: "โชว์คาบาเรต์ · เบียร์สด", c: ["#f6f4fb", "#9b6bd6", "#ffffff", "#d6cdea"] },
+    { th: "สไมล์ ริเวอร์ไซด์", pier: "ICONSIAM", decks: "2 ชั้น", seats: "320", rate: "4.8", price: "850", sunset: "16:30 – 18:30", dinner: "19:30 – 21:30", food: "กุ้งแม่น้ำเผาร้อนๆ, แซลมอนซาซิมิเกรดพรีเมียม", note: "นั่งสบาย ไม่แออัด", c: ["#1b3a5c", "#ffcc33", "#f4f7fb", "#244a72"] }
+  ];
+
+  const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const $ = (s) => document.querySelector(s);
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const lerp = (a, b, t) => a + (b - a) * t;
+  const smooth = (t) => t * t * (3 - 2 * t);
+
+  // ---------- chapters + rail ----------
+  const sections = Array.from(document.querySelectorAll(".ch"));
+  const mins = sections.map((s) => +s.dataset.min);
+  const sides = sections.map((s) => s.dataset.side);
+  const fmt = (m) => { m = Math.round(m); return String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0"); };
+  const rail = $("#rail");
+  const railBtns = sections.map((s, i) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.innerHTML = "<span>" + s.dataset.name + "</span><time>" + fmt(mins[i]) + "</time><i></i>";
+    b.addEventListener("click", () => s.scrollIntoView({ behavior: reduce ? "auto" : "smooth" }));
+    rail.appendChild(b);
+    return b;
+  });
+
+  let anchors = [], maxScroll = 1;
+  function measure() {
+    maxScroll = Math.max(1, document.documentElement.scrollHeight - innerHeight);
+    anchors = sections.map((s, i) => i === 0 ? 0 : clamp((s.offsetTop + s.offsetHeight * 0.5 - innerHeight * 0.5) / maxScroll, 0, 1));
+    anchors[anchors.length - 1] = 1;
+    for (let i = 1; i < anchors.length; i++) anchors[i] = Math.max(anchors[i], anchors[i - 1] + 0.001);
+  }
+
+  // ---------- fleet UI ----------
+  let sel = 0, pierFilter = "all";
+  const chips = $("#chips"), fleet = $("#fleet"), detail = $("#detail"), food = $("#food"), selName = $("#selName"), fBoat = $("#fBoat");
+  [["all", "ทั้งหมด"], ["ICONSIAM", "ICONSIAM"], ["Asiatique", "Asiatique"], ["River City", "River City"]].forEach(([id, label]) => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "chip"; b.textContent = label; b.dataset.id = id;
+    b.addEventListener("click", () => { pierFilter = id; renderFleet(); });
+    chips.appendChild(b);
+  });
+  BOATS.forEach((b, i) => { const o = document.createElement("option"); o.value = i; o.textContent = b.th + " · ฿" + b.price; fBoat.appendChild(o); });
+  function renderFleet() {
+    chips.querySelectorAll(".chip").forEach((c) => c.setAttribute("aria-pressed", String(c.dataset.id === pierFilter)));
+    fleet.innerHTML = "";
+    BOATS.forEach((b, i) => {
+      if (pierFilter !== "all" && b.pier !== pierFilter) return;
+      const r = document.createElement("button");
+      r.type = "button"; r.className = "boat-row"; r.setAttribute("aria-pressed", String(i === sel));
+      r.innerHTML = '<span class="dot" style="background:' + b.c[1] + '"></span><span><b>' + b.th + "</b><small>" + b.pier + " · " + b.note + " · ★ " + b.rate + '</small></span><span class="price">฿' + b.price + "</span>";
+      r.addEventListener("click", () => pick(i));
+      fleet.appendChild(r);
+    });
+    const b = BOATS[sel];
+    selName.textContent = b.th;
+    detail.innerHTML = '<div><span>ท่าเรือ</span><b>' + b.pier + '</b></div><div><span>ชั้น · ที่นั่ง</span><b>' + b.decks + " · " + b.seats + '</b></div><div><span>รอบเย็น</span><b>' + b.sunset + '</b></div><div><span>รอบค่ำ</span><b>' + b.dinner + "</b></div>";
+    food.textContent = "อาหารเด่น: " + b.food;
+  }
+  function pick(i) { sel = i; fBoat.value = String(i); renderFleet(); setPalette(BOATS[i].c); writeMsg(); }
+  renderFleet();
+
+  // ---------- booking message ----------
+  const fDate = $("#fDate"), fRound = $("#fRound"), fPeople = $("#fPeople"), fMsg = $("#fMsg"), toast = $("#toast");
+  function writeMsg() {
+    const b = BOATS[+fBoat.value || 0];
+    const d = fDate.value ? new Date(fDate.value + "T12:00:00").toLocaleDateString("th-TH", { day: "numeric", month: "long", year: "numeric" }) : "(ยังไม่ได้เลือก)";
+    fMsg.value = "สวัสดี ขอสอบถามโต๊ะว่างค่ะ/ครับ\nเรือ: " + b.th + " (" + b.pier + ")\nวันที่: " + d + "\nรอบ: " + fRound.value + "\nจำนวน: " + fPeople.value + " ท่าน\nขอโต๊ะริมน้ำมุมสวยด้วย ขอบคุณ";
+  }
+  [fDate, fRound, fPeople].forEach((el) => el.addEventListener("change", writeMsg));
+  fBoat.addEventListener("change", () => pick(+fBoat.value));
+  $("#bookForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const done = () => { toast.textContent = "คัดลอกแล้ว วางในแชต LINE @siamsunsetcruise ได้เลย"; };
+    try {
+      navigator.clipboard.writeText(fMsg.value).then(done, () => { fMsg.select(); toast.textContent = "เลือกข้อความไว้แล้ว กด Ctrl+C / แตะค้างเพื่อคัดลอก"; });
+    } catch (_) { fMsg.select(); toast.textContent = "เลือกข้อความไว้แล้ว กด Ctrl+C / แตะค้างเพื่อคัดลอก"; }
+  });
+  writeMsg();
+
+  // ---------- 3D ----------
+  let setPalette = () => {};
+  if (!window.THREE) { document.documentElement.classList.add("no-gl"); return; }
+  const canvas = $("#gl");
+  let renderer;
+  try { renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" }); }
+  catch (e) { document.documentElement.classList.add("no-gl"); canvas.remove(); return; }
+  renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.75));
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.2;
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(42, 1, 0.5, 2400);
+  const C = (h) => new THREE.Color(h);
+
+  // sky
+  const skyU = {
+    uTop: { value: C("#4f87c2") }, uHor: { value: C("#f6d3a4") }, uSunDir: { value: new THREE.Vector3(0, 1, 0) },
+    uSunCol: { value: C("#fff0d0") }, uNight: { value: 0 }, uTime: { value: 0 }, uMoonDir: { value: new THREE.Vector3(0.55, 0.42, -0.72).normalize() }
+  };
+  const SKY_FN = `
+    float hash2(vec2 p){ return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
+    float vnoise(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.-2.*f);
+      return mix(mix(hash2(i), hash2(i+vec2(1.,0.)), f.x), mix(hash2(i+vec2(0.,1.)), hash2(i+vec2(1.,1.)), f.x), f.y); }
+    float fbm(vec2 p){ float v = 0., a = .5; for (int i = 0; i < 5; i++){ v += a*vnoise(p); p = p*2.03 + vec2(1.7,9.2); a *= .5; } return v; }
+    vec3 skyCol(vec3 d){
+      float h = d.y;
+      vec3 c = mix(uHor, uTop, pow(clamp(h,0.,1.), .42));
+      c = mix(c, uHor*.55, clamp(-h*5.,0.,1.));
+      if (h > 0.) {
+        vec2 uv = d.xz/(h + .08)*.9 + vec2(uTime*.006, uTime*.002);
+        float n = fbm(uv);
+        float cov = smoothstep(.5, .78, n) * smoothstep(0., .2, h);
+        float lit = clamp(dot(normalize(vec3(d.x,0.,d.z)+1e-4), normalize(vec3(uSunDir.x,0.,uSunDir.z)+1e-4))*.5 + .5, 0., 1.);
+        vec3 cl = mix(uTop*.7 + uHor*.3, mix(uHor, uSunCol, .55)*1.12, lit*(1.-uNight));
+        cl = mix(cl, vec3(.08,.08,.13) + uHor*.45, uNight*.85);
+        float rim = smoothstep(.5,.6,n) - smoothstep(.6,.78,n);
+        cl += uSunCol*rim*.35*(1.-uNight)*lit;
+        c = mix(c, cl, cov*.85);
+      }
+      c = mix(c, uHor*1.04, exp(-abs(h)*14.)*.35);
+      float s = max(dot(d,uSunDir),0.);
+      float above = smoothstep(-.03,.02,h);
+      c += uSunCol*(smoothstep(.99935,.99965,s)*2.6*above + pow(s,90.)*.55 + pow(s,7.)*.22*(1.-uNight));
+      float m = max(dot(d,uMoonDir),0.);
+      c += vec3(1.,.96,.88)*(smoothstep(.99955,.9997,m)*1.6 + pow(m,260.)*.25)*uNight;
+      return c;
+    }`;
+  const sky = new THREE.Mesh(new THREE.SphereGeometry(1800, 48, 24), new THREE.ShaderMaterial({
+    side: THREE.BackSide, depthWrite: false, uniforms: skyU,
+    vertexShader: "varying vec3 vD; void main(){ vD = position; vec4 p = projectionMatrix*modelViewMatrix*vec4(position,1.); gl_Position = p.xyww; }",
+    fragmentShader: "uniform vec3 uTop,uHor,uSunDir,uSunCol,uMoonDir; uniform float uNight,uTime; varying vec3 vD;" + SKY_FN + `
+      void main(){
+        vec3 d = normalize(vD);
+        vec3 c = skyCol(d);
+        vec3 q = floor(d*320.);
+        float n = fract(sin(dot(q, vec3(12.9898,78.233,37.719)))*43758.5453);
+        c += step(.9978,n)*uNight*smoothstep(.06,.35,d.y)*vec3(.95);
+        gl_FragColor = vec4(c,1.);
+        #include <tonemapping_fragment>
+        #include <encodings_fragment>
+      }`
+  }));
+  sky.renderOrder = -1;
+  scene.add(sky);
+
+  // water
+  const waterU = Object.assign({ uTravel: { value: 0 }, uDeep: { value: C("#0d2a33") } }, skyU);
+  const water = new THREE.Mesh(new THREE.PlaneGeometry(3000, 3000, 1, 1), new THREE.ShaderMaterial({
+    uniforms: waterU,
+    vertexShader: "varying vec3 vW; void main(){ vec4 w = modelMatrix*vec4(position,1.); vW = w.xyz; gl_Position = projectionMatrix*viewMatrix*w; }",
+    fragmentShader: "uniform vec3 uTop,uHor,uSunDir,uSunCol,uMoonDir,uDeep; uniform float uNight,uTime,uTravel; varying vec3 vW;" + SKY_FN + `
+      void main(){
+        vec2 p = vec2(vW.x, vW.z - uTravel);
+        float t = uTime;
+        vec2 g = vec2(0.), k; float ph;
+        k = normalize(vec2(.3,1.));  ph = dot(p,k)*.16 + t*.9;  g += k*.16*.40*cos(ph);
+        k = normalize(vec2(-.7,1.)); ph = dot(p,k)*.29 + t*1.3; g += k*.29*.20*cos(ph);
+        k = normalize(vec2(1.,.25)); ph = dot(p,k)*.55 + t*1.8; g += k*.55*.09*cos(ph);
+        k = normalize(vec2(.15,-1.));ph = dot(p,k)*1.15+ t*2.4; g += k*1.15*.04*cos(ph);
+        k = normalize(vec2(-.9,-.4));ph = dot(p,k)*2.3 + t*3.1; g += k*2.3*.015*cos(ph);
+        vec3 n = normalize(vec3(-g.x, 1., -g.y));
+        vec3 v = normalize(cameraPosition - vW);
+        vec3 r = reflect(-v, n); r.y = abs(r.y);
+        float f = .03 + .97*pow(1. - max(dot(n,v),0.), 5.);
+        vec3 col = mix(uDeep*(1.-.75*uNight), skyCol(r), clamp(f*.95 + .12, 0., 1.));
+        col += uSunCol * pow(max(dot(r,uSunDir),0.), 700.) * 5. * smoothstep(-.05,.05,uSunDir.y);
+        float gl = pow(max(sin(p.x*.8 + t*.7)*sin(p.y*1.7 - t*1.5),0.), 30.);
+        col += vec3(1.,.72,.4) * gl * uNight * 1.4 * smoothstep(18.,48.,abs(vW.x));
+        float wz = vW.z - 13.;
+        float wide = 2.6 + max(wz,0.)*.16;
+        float wake = exp(-pow(vW.x/wide, 2.)) * step(0., wz) * exp(-wz/55.);
+        wake += (exp(-pow((abs(vW.x) - (5. + max(wz,-30.)*.32))/1.2, 2.)) * exp(-abs(wz+20.)/55.)) * .6 * step(-30., wz);
+        float foam = .5 + .5*sin(vW.z*.9 - t*5. + vW.x*1.7);
+        col = mix(col, vec3(.86,.9,.94)*(1. - .55*uNight), clamp(wake*foam*.45, 0., .6));
+        float pool = exp(-(pow(vW.x/8.5,2.) + pow((vW.z-2.)/22.,2.)));
+        float streak = exp(-pow((abs(vW.x)-7.5)/2.2,2.)) * smoothstep(16.,8.,abs(vW.z-3.)) * (.55+.45*sin(vW.z*2.3 - t*2.6 + vW.x));
+        col += vec3(1.,.72,.42) * uNight * (pool*.45 + streak*.55);
+        float bankRef = smoothstep(28.,70.,abs(vW.x)) * (1. - smoothstep(82.,86.,abs(vW.x)));
+        float city = pow(vnoise(vec2(p.y*.12, floor(vW.x*.6))), 3.) * (.6 + .4*sin(vW.x*2.7 + t*3.));
+        col += mix(vec3(1.,.78,.5), vec3(.7,.85,1.), step(.8, vnoise(vec2(floor(vW.x*.6), 3.)))) * uNight * bankRef * city * 1.6;
+        float dist = length(vW.xz - cameraPosition.xz);
+        col = mix(col, uHor*(1.-.2*uNight), smoothstep(220., 1100., dist));
+        gl_FragColor = vec4(col,1.);
+        #include <tonemapping_fragment>
+        #include <encodings_fragment>
+      }`
+  }));
+  water.rotation.x = -Math.PI / 2;
+  scene.add(water);
+
+  // lights
+  const hemi = new THREE.HemisphereLight(0xbfd6ff, 0x2a2f2c, 0.9);
+  const sun = new THREE.DirectionalLight(0xffffff, 2);
+  const moon = new THREE.DirectionalLight(0x8fa6ff, 0);
+  moon.position.set(55, 42, -72);
+  scene.add(hemi, sun, moon);
+  scene.fog = new THREE.Fog(0xf6d3a4, 170, 1000);
+
+  // textures
+  function canvasTex(w, h, draw) {
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    draw(c.getContext("2d"), w, h);
+    const t = new THREE.CanvasTexture(c); t.anisotropy = 4; return t;
+  }
+  function rr(x, y, w, h, r, ctx) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.fill(); }
+  // arched saloon windows: glass with a reflection streak by day, warm curtained rooms and a chandelier by night
+  function archPath(x, X0, y, w, h) { const r = w / 2; x.beginPath(); x.moveTo(X0, y + h); x.lineTo(X0, y + r); x.arc(X0 + r, y + r, r, Math.PI, 0); x.lineTo(X0 + w, y + h); x.closePath(); }
+  const winMap = canvasTex(512, 128, (x, w, h) => {
+    x.fillStyle = "#ffffff"; x.fillRect(0, 0, w, h);
+    x.fillStyle = "#d8cfbd"; x.fillRect(0, h - 10, w, 10);
+    for (let i = 0; i < 8; i++) {
+      const X0 = i * 64 + 8;
+      archPath(x, X0, 16, 48, 96); x.fillStyle = "#26313c"; x.fill();
+      x.save(); archPath(x, X0, 16, 48, 96); x.clip(); x.fillStyle = "rgba(255,255,255,.2)"; x.beginPath(); x.moveTo(X0 + 4, 112); x.lineTo(X0 + 26, 16); x.lineTo(X0 + 36, 16); x.lineTo(X0 + 14, 112); x.fill(); x.restore();
+      x.fillStyle = "#ffffff"; x.fillRect(X0 + 23, 16, 2, 96); x.fillRect(X0, 60, 48, 2);
+    }
+  });
+  const winEm = canvasTex(512, 128, (x, w, h) => {
+    x.fillStyle = "#000"; x.fillRect(0, 0, w, h);
+    for (let i = 0; i < 8; i++) {
+      const X0 = i * 64 + 8;
+      const g = x.createLinearGradient(0, 16, 0, 112); g.addColorStop(0, "#ffffff"); g.addColorStop(1, "#8a6a40");
+      archPath(x, X0, 16, 48, 96); x.fillStyle = g; x.fill();
+      x.fillStyle = "rgba(0,0,0,.45)"; x.fillRect(X0, 16, 7, 96); x.fillRect(X0 + 41, 16, 7, 96);
+      x.fillStyle = "#ffffff"; x.beginPath(); x.arc(X0 + 24, 34, 4, 0, Math.PI * 2); x.fill();
+      x.fillStyle = "#000"; x.fillRect(X0 + 23, 16, 2, 96); x.fillRect(X0, 60, 48, 2);
+    }
+  });
+  winEm.encoding = THREE.LinearEncoding;
+  const facMap = canvasTex(128, 256, (x, w, h) => { x.fillStyle = "#c7ccd2"; x.fillRect(0, 0, w, h); x.fillStyle = "#4a5562"; for (let r = 0; r < 24; r++) for (let c = 0; c < 6; c++) x.fillRect(c * 21 + 4, r * 10.6 + 3, 13, 6); });
+  const facEm = canvasTex(128, 256, (x, w, h) => { x.fillStyle = "#000"; x.fillRect(0, 0, w, h); for (let r = 0; r < 24; r++) for (let c = 0; c < 6; c++) { const v = Math.random(); if (v > 0.42) { x.fillStyle = v > 0.9 ? "#bfe3ff" : "#ffffff"; x.fillRect(c * 21 + 4, r * 10.6 + 3, 13, 6); } } });
+  facEm.encoding = THREE.LinearEncoding;
+  const flagTex = canvasTex(96, 64, (x, w, h) => { const s = [["#a51931", 1], ["#f4f5f8", 1], ["#2d2a4a", 2], ["#f4f5f8", 1], ["#a51931", 1]]; let y = 0; s.forEach(([c, n]) => { x.fillStyle = c; x.fillRect(0, y, w, n * h / 6); y += n * h / 6; }); });
+
+  // ---------- the boat ----------
+  const boat = new THREE.Group();
+  scene.add(boat);
+  const M = {
+    hull: new THREE.MeshStandardMaterial({ color: "#141b2e", roughness: 0.32, metalness: 0.2 }),
+    stripe: new THREE.MeshStandardMaterial({ color: "#e2a93b", roughness: 0.35, metalness: 0.5, emissive: "#e2a93b", emissiveIntensity: 0 }),
+    wood: new THREE.MeshStandardMaterial({ color: "#8a5a3b", roughness: 0.75 }),
+    win: new THREE.MeshStandardMaterial({ color: "#f4efe4", map: winMap, emissiveMap: winEm, emissive: "#ffc77a", emissiveIntensity: 0.1, roughness: 0.5 }),
+    wall: new THREE.MeshStandardMaterial({ color: "#f4efe4", roughness: 0.55 }),
+    roof: new THREE.MeshStandardMaterial({ color: "#1d2740", roughness: 0.7 }),
+    rail: new THREE.MeshStandardMaterial({ color: "#d8d2c4", roughness: 0.3, metalness: 0.7 }),
+    cloth: new THREE.MeshStandardMaterial({ color: "#e2a93b", roughness: 0.9, side: THREE.DoubleSide }),
+    table: new THREE.MeshStandardMaterial({ color: "#fbf7ee", roughness: 0.6 }),
+    bulb: new THREE.MeshBasicMaterial({ color: "#ffd88a" }),
+    flag: new THREE.MeshStandardMaterial({ map: flagTex, side: THREE.DoubleSide, roughness: 0.8 })
+  };
+  function hullShape(sx, tip) {
+    const s = new THREE.Shape();
+    s.moveTo(-5 * sx, -15); s.lineTo(5 * sx, -15); s.lineTo(5.2 * sx, 5);
+    s.quadraticCurveTo(5 * sx, 14, 0, tip); s.quadraticCurveTo(-5 * sx, 14, -5.2 * sx, 5); s.lineTo(-5 * sx, -15);
+    return s;
+  }
+  const hullGeo = new THREE.ExtrudeGeometry(hullShape(1, 17), { depth: 3, bevelEnabled: true, bevelThickness: 0.25, bevelSize: 0.25, bevelSegments: 3, curveSegments: 24 });
+  hullGeo.rotateX(-Math.PI / 2);
+  const hull = new THREE.Mesh(hullGeo, [M.wood, M.hull]); hull.position.y = -1.3; boat.add(hull);
+  const stripeGeo = new THREE.ExtrudeGeometry(hullShape(1.03, 17.45), { depth: 0.34, bevelEnabled: false, curveSegments: 24 });
+  stripeGeo.rotateX(-Math.PI / 2);
+  const stripe = new THREE.Mesh(stripeGeo, M.stripe); stripe.position.y = 1.0; boat.add(stripe);
+
+  function cabin(y, h, w, zBack, zFront, r) {
+    const L = zBack - zFront;
+    const box = new THREE.Mesh(new THREE.BoxGeometry(w, h, L), [M.win, M.win, M.roof, M.wall, M.win, M.wall]);
+    box.position.set(0, y + h / 2, zFront + L / 2); boat.add(box);
+    const cyl = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 28, 1, false, Math.PI / 2, Math.PI), [M.win, M.roof, M.wall]);
+    cyl.position.set(0, y + h / 2, zFront); boat.add(cyl);
+  }
+  function slab(y, h, w, zBack, zFront, r, mat) {
+    const L = zBack - zFront;
+    const box = new THREE.Mesh(new THREE.BoxGeometry(w, h, L), mat); box.position.set(0, y + h / 2, zFront + L / 2); boat.add(box);
+    const cyl = new THREE.Mesh(new THREE.CylinderGeometry(r, r, h, 28, 1, false, Math.PI / 2, Math.PI), mat); cyl.position.set(0, y + h / 2, zFront); boat.add(cyl);
+  }
+  cabin(1.95, 2.6, 9.2, 13, -6, 4.6);
+  slab(4.55, 0.2, 9.9, 13.4, -6, 4.95, M.roof);
+  cabin(4.75, 2.3, 8.2, 11, -3, 4.1);
+  slab(7.05, 0.25, 9.4, 11.6, -3.6, 4.7, M.roof);
+  const deckTop = 7.3;
+
+  // rails
+  const postGeo = new THREE.CylinderGeometry(0.05, 0.05, 1.0, 6);
+  const posts = [];
+  for (let z = -3.6; z <= 11.6; z += 1.5) { posts.push([4.55, z], [-4.55, z]); }
+  for (let x = -3; x <= 3; x += 1.5) posts.push([x, 11.55]);
+  for (let a = 0.15; a < Math.PI; a += Math.PI / 8) posts.push([Math.cos(a) * 4.55, -3.6 - Math.sin(a) * 4.55]);
+  const postMesh = new THREE.InstancedMesh(postGeo, M.rail, posts.length);
+  const tmp = new THREE.Object3D();
+  posts.forEach(([x, z], i) => { tmp.position.set(x, deckTop + 0.5, z); tmp.updateMatrix(); postMesh.setMatrixAt(i, tmp.matrix); });
+  boat.add(postMesh);
+  [4.55, -4.55].forEach((x) => { const r = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 15.2), M.rail); r.position.set(x, deckTop + 1, 4); boat.add(r); });
+  const backRail = new THREE.Mesh(new THREE.BoxGeometry(9.1, 0.08, 0.08), M.rail); backRail.position.set(0, deckTop + 1, 11.6); boat.add(backRail);
+  const frontRail = new THREE.Mesh(new THREE.TorusGeometry(4.55, 0.04, 6, 32, Math.PI), M.rail);
+  frontRail.rotation.x = -Math.PI / 2; frontRail.position.set(0, deckTop + 1, -3.6); boat.add(frontRail);
+
+  // canopy at the stern of the top deck
+  [[-3.8, 7.5], [3.8, 7.5], [-3.8, 11.1], [3.8, 11.1]].forEach(([x, z]) => { const p = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 2.4, 6), M.rail); p.position.set(x, deckTop + 1.2, z); boat.add(p); });
+
+  // dining tables with little lamps
+  const tables = [];
+  [-2.3, 2.3].forEach((x) => [-1.2, 1.8, 4.8].forEach((z) => tables.push([x, z])));
+  [[-1.4, 9.3], [1.4, 9.3]].forEach((p) => tables.push(p));
+  const topMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.6, 0.6, 0.08, 16), M.table, tables.length);
+  const legMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.06, 0.06, 0.7, 6), M.rail, tables.length);
+  const lampMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.1, 8, 6), M.bulb, tables.length);
+  tables.forEach(([x, z], i) => {
+    tmp.position.set(x, deckTop + 0.74, z); tmp.updateMatrix(); topMesh.setMatrixAt(i, tmp.matrix);
+    tmp.position.set(x, deckTop + 0.35, z); tmp.updateMatrix(); legMesh.setMatrixAt(i, tmp.matrix);
+    tmp.position.set(x, deckTop + 0.9, z); tmp.updateMatrix(); lampMesh.setMatrixAt(i, tmp.matrix);
+  });
+  boat.add(topMesh, legMesh, lampMesh);
+
+  // mast + flag
+  const mastTop = new THREE.Vector3(0, deckTop + 4.2, -3.2);
+  const mast = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 4.2, 8), M.rail); mast.position.set(0, deckTop + 2.1, -3.2); boat.add(mast);
+  const flag = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1, 6, 1), M.flag); flag.position.set(0, mastTop.y - 0.6, -3.2 + 0.78); flag.rotation.y = -Math.PI / 2; boat.add(flag);
+  const flagPos = flag.geometry.attributes.position, flagBase = flagPos.array.slice();
+
+  // string lights
+  const bulbs = [];
+  function sag(a, b, n, drop) { for (let i = 0; i <= n; i++) { const t = i / n; const p = a.clone().lerp(b, t); p.y -= Math.sin(t * Math.PI) * drop; bulbs.push(p); } }
+  sag(mastTop, new THREE.Vector3(0, 2.4, -16.6), 26, 1.4);
+  sag(mastTop, new THREE.Vector3(0, deckTop + 2.4, 7.4), 16, 0.8);
+  sag(new THREE.Vector3(4.55, deckTop + 1.9, -3.6), new THREE.Vector3(4.55, deckTop + 2.3, 7.4), 12, 0.45);
+  sag(new THREE.Vector3(-4.55, deckTop + 1.9, -3.6), new THREE.Vector3(-4.55, deckTop + 2.3, 7.4), 12, 0.45);
+  sag(new THREE.Vector3(5.15, 4.75, 13.2), new THREE.Vector3(5.15, 4.75, -5.6), 18, 0.25);
+  sag(new THREE.Vector3(-5.15, 4.75, 13.2), new THREE.Vector3(-5.15, 4.75, -5.6), 18, 0.25);
+  const bulbMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.11, 8, 6), M.bulb, bulbs.length);
+  bulbs.forEach((p, i) => { tmp.position.copy(p); tmp.updateMatrix(); bulbMesh.setMatrixAt(i, tmp.matrix); });
+  boat.add(bulbMesh);
+  // ---------- fancy details ----------
+  const D = {
+    trim: new THREE.MeshStandardMaterial({ color: "#e2b04a", roughness: 0.25, metalness: 0.9, emissive: "#e2b04a", emissiveIntensity: 0 }),
+    port: new THREE.MeshStandardMaterial({ color: "#26303b", roughness: 0.15, metalness: 0.4, emissive: "#ffd28a", emissiveIntensity: 0 }),
+    glass: new THREE.MeshStandardMaterial({ color: "#cfe9ff", roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.2, depthWrite: false, side: THREE.DoubleSide }),
+    led: new THREE.MeshBasicMaterial({ color: "#ffd9a0" }),
+    red: new THREE.MeshBasicMaterial({ color: "#ff3b30" }),
+    green: new THREE.MeshBasicMaterial({ color: "#2bd96b" }),
+    white: new THREE.MeshBasicMaterial({ color: "#ffffff" }),
+    lantern: new THREE.MeshBasicMaterial({ color: "#ff6a3d" }),
+    ring: new THREE.MeshStandardMaterial({ color: "#ff6b2c", roughness: 0.6 })
+  };
+  // gold trim along each deck edge
+  function trim(y, w, zBack, zFront, r, th) {
+    const L = zBack - zFront;
+    [1, -1].forEach((s) => { const b = new THREE.Mesh(new THREE.BoxGeometry(th, th, L), D.trim); b.position.set(s * w / 2, y, zFront + L / 2); boat.add(b); });
+    const back = new THREE.Mesh(new THREE.BoxGeometry(w, th, th), D.trim); back.position.set(0, y, zBack); boat.add(back);
+    const arc = new THREE.Mesh(new THREE.TorusGeometry(r, th / 2, 6, 40, Math.PI), D.trim); arc.rotation.x = -Math.PI / 2; arc.position.set(0, y, zFront); boat.add(arc);
+  }
+  trim(4.62, 9.95, 13.4, -6, 4.98, 0.12);
+  trim(7.25, 9.45, 11.6, -3.6, 4.73, 0.12);
+  trim(2.0, 9.25, 13, -6, 4.63, 0.08);
+
+  // warm LED line just above the waterline
+  const ledGeo = new THREE.ExtrudeGeometry(hullShape(1.035, 17.5), { depth: 0.07, bevelEnabled: false, curveSegments: 24 });
+  ledGeo.rotateX(-Math.PI / 2);
+  const led = new THREE.Mesh(ledGeo, D.led); led.position.y = 0.2; boat.add(led);
+
+  // brass-ringed portholes along the hull
+  const ports = [];
+  for (let z = -3.5; z <= 12.5; z += 1.45) { const x = 5.3 + 0.2 * (15 - z) / 20; ports.push([x, z], [-x, z]); }
+  const portGeo = new THREE.CylinderGeometry(0.27, 0.27, 0.08, 18); portGeo.rotateZ(Math.PI / 2);
+  const ringGeo = new THREE.TorusGeometry(0.3, 0.05, 6, 18); ringGeo.rotateY(Math.PI / 2);
+  const portMesh = new THREE.InstancedMesh(portGeo, D.port, ports.length);
+  const ringMesh = new THREE.InstancedMesh(ringGeo, D.trim, ports.length);
+  ports.forEach(([x, z], i) => { tmp.position.set(x, 0.62, z); tmp.updateMatrix(); portMesh.setMatrixAt(i, tmp.matrix); ringMesh.setMatrixAt(i, tmp.matrix); });
+  boat.add(portMesh, ringMesh);
+
+  // glass balustrade on the top deck
+  [4.55, -4.55].forEach((x) => { const g = new THREE.Mesh(new THREE.PlaneGeometry(15.2, 0.9), D.glass); g.rotation.y = Math.PI / 2; g.position.set(x, deckTop + 0.5, 4); boat.add(g); });
+  const gFront = new THREE.Mesh(new THREE.CylinderGeometry(4.55, 4.55, 0.9, 32, 1, true, Math.PI / 2, Math.PI), D.glass); gFront.position.set(0, deckTop + 0.5, -3.6); boat.add(gFront);
+
+  // Thai sala pavilion at the stern: two layered gable roofs with gold bargeboards and chofa
+  function gable(w, h, len, z0, y0) {
+    const s = new THREE.Shape(); s.moveTo(-w / 2, 0); s.lineTo(w / 2, 0); s.lineTo(0, h); s.lineTo(-w / 2, 0);
+    const m = new THREE.Mesh(new THREE.ExtrudeGeometry(s, { depth: len, bevelEnabled: false }), [D.trim, M.cloth]); m.position.set(0, y0, z0); boat.add(m);
+    const slope = Math.hypot(w / 2, h), ang = Math.atan2(h, w / 2);
+    [z0 - 0.05, z0 + len + 0.05].forEach((z) => {
+      [-1, 1].forEach((sx) => {
+        const b = new THREE.Mesh(new THREE.BoxGeometry(slope + 0.5, 0.14, 0.12), D.trim); b.position.set(sx * w / 4, y0 + h / 2 + 0.05, z); b.rotation.z = -sx * ang; boat.add(b);
+        const tip = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.7, 6), D.trim); tip.position.set(sx * (w / 2 + 0.2), y0 + 0.15, z); tip.rotation.z = -sx * 0.9; boat.add(tip);
+      });
+      const chofa = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.07, 6, 16, Math.PI * 0.75), D.trim); chofa.position.set(0, y0 + h + 0.3, z); chofa.rotation.z = Math.PI * 0.15; boat.add(chofa);
+    });
+  }
+  gable(9.2, 1.4, 4.8, 6.9, deckTop + 2.4);
+  gable(6.6, 1.7, 3.6, 7.5, deckTop + 3.2);
+  [[-3.6, 7.2], [3.6, 7.2], [-3.6, 11.4], [3.6, 11.4]].forEach(([x, z]) => { const l = new THREE.Mesh(new THREE.SphereGeometry(0.22, 12, 8), D.lantern); l.scale.y = 1.3; l.position.set(x, deckTop + 1.95, z); boat.add(l); });
+
+  // navigation lights + life rings
+  const nav = (mat, x, y, z) => { const m = new THREE.Mesh(new THREE.SphereGeometry(0.13, 10, 8), mat); m.position.set(x, y, z); boat.add(m); };
+  nav(D.red, -4.75, 4.85, -5.8); nav(D.green, 4.75, 4.85, -5.8); nav(D.white, 0, mastTop.y + 0.15, -3.2);
+  [-2.2, 2.2].forEach((x) => { const r = new THREE.Mesh(new THREE.TorusGeometry(0.38, 0.11, 8, 20), D.ring); r.position.set(x, deckTop + 0.55, 11.7); boat.add(r); });
+
+  const boatLight = new THREE.PointLight(0xffc27a, 0, 34, 1.4); boatLight.position.set(0, 10, 3); boat.add(boatLight);
+
+  // palette swap (eases toward target)
+  const pal = { hull: C("#141b2e"), stripe: C("#e2a93b"), wall: C("#f4efe4"), roof: C("#1d2740") };
+  setPalette = (c) => { pal.hull.set(c[0]); pal.stripe.set(c[1]); pal.wall.set(c[2]); pal.roof.set(c[3]); };
+
+  // ---------- the river world (moves past the boat) ----------
+  const world = new THREE.Group(); scene.add(world);
+  const bankMat = new THREE.MeshStandardMaterial({ color: "#2b302d", roughness: 0.95 });
+  [-1, 1].forEach((s) => { const b = new THREE.Mesh(new THREE.BoxGeometry(120, 3, 1600), bankMat); b.position.set(s * 145, -0.3, -500); world.add(b); });
+  const LIGHT_WARM = new THREE.MeshBasicMaterial({ color: "#ffcf8a" });
+  const promo = [];
+  for (let z = 160; z > -1150; z -= 7) { promo.push([-85.6, z], [85.6, z]); }
+  const promoMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(0.28, 6, 4), LIGHT_WARM, promo.length);
+  promo.forEach(([x, z], i) => { tmp.position.set(x, 2.1, z); tmp.updateMatrix(); promoMesh.setMatrixAt(i, tmp.matrix); });
+  world.add(promoMesh);
+
+  // city blocks
+  const facMat = new THREE.MeshStandardMaterial({ map: facMap, emissiveMap: facEm, emissive: "#ffcf8a", emissiveIntensity: 0, roughness: 0.85 });
+  const blocks = [];
+  let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const keepOut = (x, z) => (x > 0 && z < -80 && z > -150) || (x > 0 && z < -165 && z > -235) || (x < 0 && z < 10 && z > -70);
+  for (let z = 140; z > -1150; z -= 8 + rnd() * 8) {
+    [-1, 1].forEach((s) => {
+      const x = s * (96 + rnd() * 30);
+      if (keepOut(x, z)) return;
+      blocks.push([x, z, 6 + rnd() * 9, 6 + Math.pow(rnd(), 2) * 30, 6 + rnd() * 9]);
+      if (rnd() > 0.35) blocks.push([s * (150 + rnd() * 80), z - 4, 10 + rnd() * 14, 18 + rnd() * 42, 10 + rnd() * 12]);
+    });
+  }
+  // distant skyline fading into haze
+  for (let z = 200; z > -1300; z -= 12 + rnd() * 10) [-1, 1].forEach((s) => blocks.push([s * (230 + rnd() * 200), z, 16 + rnd() * 20, 40 + Math.pow(rnd(), 1.5) * 110, 16 + rnd() * 20]));
+  const blockMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), facMat, blocks.length);
+  const tints = ["#d9d4cb", "#b7c0c9", "#e6ddcf", "#9aa7b4", "#cfc6b6"];
+  blocks.forEach(([x, z, w, h, d], i) => {
+    tmp.position.set(x, 1.2 + h / 2, z); tmp.scale.set(w, h, d); tmp.updateMatrix(); blockMesh.setMatrixAt(i, tmp.matrix);
+    blockMesh.setColorAt(i, C(tints[i % tints.length]));
+  });
+  tmp.scale.set(1, 1, 1);
+  world.add(blockMesh);
+
+  // trees along the promenade
+  const treePts = [];
+  for (let z = 150; z > -1150; z -= 5 + rnd() * 6) [-1, 1].forEach((s) => { if (rnd() > 0.35) treePts.push([s * (88 + rnd() * 4), z]); });
+  const treeMesh = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(2.1, 1), new THREE.MeshStandardMaterial({ color: "#2f5a3c", roughness: 0.95, flatShading: true }), treePts.length);
+  treePts.forEach(([x, z], i) => { const k = 0.7 + rnd() * 0.6; tmp.position.set(x, 1.2 + 2.3 * k, z); tmp.scale.set(k, k, k); tmp.updateMatrix(); treeMesh.setMatrixAt(i, tmp.matrix); });
+  tmp.scale.set(1, 1, 1);
+  world.add(treeMesh);
+
+  // ICONSIAM-style glass towers (start, left bank)
+  const glass = new THREE.MeshStandardMaterial({ color: "#7d92a8", map: facMap, emissiveMap: facEm, emissive: "#cfe6ff", emissiveIntensity: 0, roughness: 0.25, metalness: 0.55 });
+  [[-104, -22, 14, 84, 14], [-120, -42, 12, 66, 12]].forEach(([x, z, w, h, d]) => { const t = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), glass); t.position.set(x, 1.2 + h / 2, z); world.add(t); });
+  const podium = new THREE.Mesh(new THREE.BoxGeometry(26, 12, 46), new THREE.MeshStandardMaterial({ color: "#d4d0c8", roughness: 0.5, emissive: "#ffdca0", emissiveIntensity: 0 }));
+  podium.position.set(-102, 7.2, -30); world.add(podium);
+
+  // Asiatique-style ferris wheel (right bank)
+  const wheel = new THREE.Group(); wheel.position.set(104, 1.2, -115); wheel.rotation.y = Math.PI / 2; world.add(wheel);
+  const whiteMetal = new THREE.MeshStandardMaterial({ color: "#e9edf2", roughness: 0.4, metalness: 0.4 });
+  [-1, 1].forEach((s) => { const leg = new THREE.Mesh(new THREE.BoxGeometry(0.8, 30, 0.8), whiteMetal); leg.position.set(s * 6, 14, -1.5); leg.rotation.z = s * 0.2; wheel.add(leg); });
+  const rotor = new THREE.Group(); rotor.position.y = 28; wheel.add(rotor);
+  rotor.add(new THREE.Mesh(new THREE.TorusGeometry(20, 0.35, 8, 72), whiteMetal));
+  for (let i = 0; i < 18; i++) { const sp = new THREE.Mesh(new THREE.BoxGeometry(0.18, 40, 0.18), whiteMetal); sp.rotation.z = (i / 18) * Math.PI; rotor.add(sp); }
+  const wheelBulbs = new THREE.InstancedMesh(new THREE.SphereGeometry(0.32, 6, 4), new THREE.MeshBasicMaterial({ color: "#ffffff" }), 72);
+  const wheelCols = ["#ff7ab0", "#7fd3ff", "#ffd36b"];
+  for (let i = 0; i < 72; i++) { const a = (i / 72) * Math.PI * 2; tmp.position.set(Math.cos(a) * 20, Math.sin(a) * 20, 0.4); tmp.updateMatrix(); wheelBulbs.setMatrixAt(i, tmp.matrix); wheelBulbs.setColorAt(i, C(wheelCols[i % 3])); }
+  rotor.add(wheelBulbs);
+  const gond = new THREE.InstancedMesh(new THREE.BoxGeometry(1.6, 1.8, 1.6), new THREE.MeshStandardMaterial({ color: "#f05a7e", roughness: 0.6 }), 18);
+  rotor.add(gond);
+
+  // Wat Arun-style prang (right bank)
+  const prangMat = new THREE.MeshStandardMaterial({ color: "#e6dcc8", roughness: 0.85, emissive: "#ffb766", emissiveIntensity: 0 });
+  function prang(x, z, k) {
+    const g = new THREE.Group(); g.position.set(x, 1.2, z); g.scale.setScalar(k);
+    let y = 0, r = 9;
+    const base = new THREE.Mesh(new THREE.BoxGeometry(24, 3, 24), prangMat); base.position.y = 1.5; g.add(base); y = 3;
+    for (let i = 0; i < 7; i++) { const h = 4.2 - i * 0.2; const m = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.82, r, h, 8), prangMat); m.position.y = y + h / 2; g.add(m); y += h; r *= 0.8; }
+    const spire = new THREE.Mesh(new THREE.ConeGeometry(r * 0.9, 14, 8), prangMat); spire.position.y = y + 7; g.add(spire);
+    const tipM = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.3, 6, 6), prangMat); tipM.position.y = y + 17; g.add(tipM);
+    world.add(g);
+  }
+  prang(112, -200, 1.15);
+  [[100, -184], [100, -216], [126, -184], [126, -216]].forEach(([x, z]) => prang(x, z, 0.42));
+
+  // Rama VIII-style cable bridge
+  const bridgeZ = -400;
+  const bridgeMat = new THREE.MeshStandardMaterial({ color: "#d8d2c4", roughness: 0.6 });
+  const deck = new THREE.Mesh(new THREE.BoxGeometry(420, 1.6, 8), bridgeMat); deck.position.set(0, 16, bridgeZ); world.add(deck);
+  const pylon = new THREE.Mesh(new THREE.BoxGeometry(3.6, 82, 3.6), bridgeMat); pylon.position.set(-96, 41, bridgeZ); world.add(pylon);
+  const cablePts = [];
+  for (let i = 0; i < 14; i++) {
+    const py = 46 + i * 2.6;
+    cablePts.push(-96, py, bridgeZ - 1, -86 + i * 12, 16.8, bridgeZ - 3.6, -96, py, bridgeZ + 1, -86 + i * 12, 16.8, bridgeZ + 3.6);
+    cablePts.push(-96, py, bridgeZ, -104 - i * 5, 16.8, bridgeZ);
+  }
+  const cableGeo = new THREE.BufferGeometry(); cableGeo.setAttribute("position", new THREE.Float32BufferAttribute(cablePts, 3));
+  const cableMat = new THREE.LineBasicMaterial({ color: "#e8e2d4" });
+  world.add(new THREE.LineSegments(cableGeo, cableMat));
+  const deckLights = new THREE.InstancedMesh(new THREE.SphereGeometry(0.35, 6, 4), LIGHT_WARM, 80);
+  for (let i = 0; i < 40; i++) [-4, 4].forEach((dz, j) => { tmp.position.set(-200 + i * 10, 17.4, bridgeZ + dz); tmp.updateMatrix(); deckLights.setMatrixAt(i * 2 + j, tmp.matrix); });
+  world.add(deckLights);
+
+  // ---------- time of day ----------
+  const KEYS = [
+    { m: 990,  top: "#4f87c2", hor: "#f6d3a4", el: 17, sc: "#fff0d0", si: 2.6, n: 0,    deep: "#12404a" },
+    { m: 1050, top: "#4a6aa6", hor: "#ffbd7c", el: 7,  sc: "#ffc48a", si: 2.0, n: 0.05, deep: "#123844" },
+    { m: 1080, top: "#36487f", hor: "#ff8a55", el: 1.5,sc: "#ff9a5c", si: 1.3, n: 0.15, deep: "#10303d" },
+    { m: 1110, top: "#232a5c", hor: "#d9667a", el: -3, sc: "#ff6a5a", si: 0.35,n: 0.45, deep: "#0c2232" },
+    { m: 1150, top: "#0f1636", hor: "#3e3a6e", el: -9, sc: "#ff6a5a", si: 0,   n: 0.82, deep: "#08141f" },
+    { m: 1305, top: "#04060f", hor: "#161b36", el: -15,sc: "#ff6a5a", si: 0,   n: 1,    deep: "#050b13" }
+  ].map((k) => Object.assign(k, { top: C(k.top), hor: C(k.hor), sc: C(k.sc), deep: C(k.deep) }));
+  const tc = { top: C("#000"), hor: C("#000"), sc: C("#000"), deep: C("#000") };
+  function timeAt(m) {
+    let i = 0; while (i < KEYS.length - 2 && m > KEYS[i + 1].m) i++;
+    const a = KEYS[i], b = KEYS[i + 1], t = clamp((m - a.m) / (b.m - a.m), 0, 1);
+    tc.top.copy(a.top).lerp(b.top, t); tc.hor.copy(a.hor).lerp(b.hor, t); tc.sc.copy(a.sc).lerp(b.sc, t); tc.deep.copy(a.deep).lerp(b.deep, t);
+    return { el: lerp(a.el, b.el, t), si: lerp(a.si, b.si, t), n: lerp(a.n, b.n, t) };
+  }
+  const SUN_AZ = 0.62;
+
+  // ---------- camera keyframes (boat space, bow points to -z) ----------
+  const V = (x, y, z) => new THREE.Vector3(x, y, z);
+  const CAM = [
+    { p: V(27, 9, 27),   l: V(0, 4.5, -3) },
+    { p: V(-25, 5.5, 12),l: V(0, 4.5, 0) },
+    { p: V(6, 4.5, 36),  l: V(2, 7, -30) },
+    { p: V(13, 21, 15),  l: V(0, 7, 0) },
+    { p: V(-21, 6, -31), l: V(0, 8, 4) },
+    { p: V(23, 7.5, -21),l: V(0, 5, 2) },
+    { p: V(0, 30, 50),   l: V(0, 5, -24) }
+  ];
+  const camPos = V(0, 0, 0), camLook = V(0, 0, 0);
+
+  // drag to orbit (strongest in the opening chapter)
+  let yaw = 0, yawV = 0, dragging = false, lastX = 0;
+  canvas.addEventListener("pointerdown", (e) => { dragging = true; lastX = e.clientX; });
+  addEventListener("pointermove", (e) => { if (!dragging) return; const dx = e.clientX - lastX; lastX = e.clientX; yaw -= dx * 0.008; yawV = -dx * 0.008; });
+  addEventListener("pointerup", () => { dragging = false; });
+  addEventListener("pointercancel", () => { dragging = false; });
+
+  let W = 0, H = 0, narrow = false;
+  function resize() {
+    W = innerWidth; H = innerHeight; narrow = W < 760;
+    renderer.setSize(W, H, false);
+    camera.aspect = W / H; camera.fov = narrow ? 50 : 40; camera.updateProjectionMatrix();
+    measure();
+  }
+  addEventListener("resize", resize);
+  addEventListener("load", measure);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(measure);
+  resize();
+
+  let pS = 0, offX = 0, last = performance.now(), currentCh = -1;
+  const clockEl = $("#clock"), subEl = $("#clockSub");
+  const tmpV = V(0, 0, 0);
+
+  function frame(now) {
+    const dt = Math.min(0.05, (now - last) / 1000); last = now;
+    const t = now / 1000;
+    const target = clamp(scrollY / maxScroll, 0, 1);
+    pS += (target - pS) * (reduce ? 1 : Math.min(1, dt * 3.2));
+
+    let i = 0; while (i < anchors.length - 2 && pS >= anchors[i + 1]) i++;
+    const f = clamp((pS - anchors[i]) / (anchors[i + 1] - anchors[i]), 0, 1), e = smooth(f);
+    const minutes = lerp(mins[i], mins[i + 1], f);
+
+    // clock + rail
+    clockEl.textContent = fmt(minutes);
+    subEl.textContent = minutes < 1020 ? "แดดบ่าย" : minutes < 1110 ? "ฟ้าเปลี่ยนสี" : minutes < 1170 ? "ฟ้าสีคราม" : "ไฟทั้งเมือง";
+    const ch = f > 0.5 ? i + 1 : i;
+    if (ch !== currentCh) { currentCh = ch; railBtns.forEach((b, k) => b.setAttribute("aria-current", String(k === ch))); }
+
+    // sky + light
+    const tod = timeAt(minutes);
+    const el = THREE.MathUtils.degToRad(tod.el);
+    skyU.uSunDir.value.set(-Math.sin(SUN_AZ) * Math.cos(el), Math.sin(el), -Math.cos(SUN_AZ) * Math.cos(el));
+    skyU.uTop.value.copy(tc.top); skyU.uHor.value.copy(tc.hor); skyU.uSunCol.value.copy(tc.sc); skyU.uNight.value = tod.n;
+    waterU.uDeep.value.copy(tc.deep); waterU.uTime.value = t;
+    sun.position.copy(skyU.uSunDir.value).multiplyScalar(100); sun.color.copy(tc.sc); sun.intensity = tod.si;
+    hemi.color.copy(tc.top).lerp(C("#ffffff"), 0.35); hemi.intensity = 0.32 + 0.6 * (1 - tod.n);
+    moon.intensity = 0.35 * tod.n;
+    scene.fog.color.copy(tc.hor);
+    const glow = 0.25 + 2.4 * tod.n;
+    M.win.emissiveIntensity = 0.08 + 1.9 * tod.n;
+    M.stripe.emissiveIntensity = 0.35 * tod.n;
+    M.bulb.color.setRGB(1, 0.85, 0.54).multiplyScalar(0.5 + glow);
+    LIGHT_WARM.color.setRGB(1, 0.8, 0.5).multiplyScalar(0.25 + 2.2 * tod.n);
+    facMat.emissiveIntensity = 1.3 * tod.n; glass.emissiveIntensity = 0.9 * tod.n; podium.material.emissiveIntensity = 0.5 * tod.n;
+    prangMat.emissiveIntensity = 0.55 * tod.n;
+    cableMat.color.setRGB(0.91, 0.89, 0.83).lerp(C("#ffd37a"), tod.n).multiplyScalar(1 + tod.n);
+    wheelBulbs.material.color.setScalar(0.25 + 2 * tod.n);
+    boatLight.intensity = 2.2 * tod.n;
+    D.trim.emissiveIntensity = 0.25 * tod.n;
+    D.port.emissiveIntensity = 0.1 + 1.8 * tod.n;
+    D.led.color.setRGB(1, 0.85, 0.62).multiplyScalar(0.2 + 2.0 * tod.n);
+    D.red.color.setRGB(1, 0.23, 0.19).multiplyScalar(0.6 + 1.6 * tod.n);
+    D.green.color.setRGB(0.17, 0.85, 0.42).multiplyScalar(0.6 + 1.6 * tod.n);
+    D.white.color.setScalar(0.8 + 1.5 * tod.n);
+    D.lantern.color.setRGB(1, 0.42, 0.24).multiplyScalar(0.5 + 1.8 * tod.n);
+
+    // palette easing
+    M.hull.color.lerp(pal.hull, 0.08); M.stripe.color.lerp(pal.stripe, 0.08); M.stripe.emissive.copy(M.stripe.color);
+    M.win.color.lerp(pal.wall, 0.08); M.wall.color.lerp(pal.wall, 0.08); M.roof.color.lerp(pal.roof, 0.08); M.cloth.color.copy(M.stripe.color);
+
+    // the river moves past
+    const travel = pS * 560;
+    world.position.z = travel; waterU.uTravel.value = travel;
+    rotor.rotation.z = t * 0.06;
+    for (let g = 0; g < 18; g++) { const a = (g / 18) * Math.PI * 2 + rotor.rotation.z; tmp.position.set(Math.cos(a - rotor.rotation.z) * 20, Math.sin(a - rotor.rotation.z) * 20 - 1.6, 0); tmp.rotation.set(0, 0, -rotor.rotation.z); tmp.updateMatrix(); gond.setMatrixAt(g, tmp.matrix); }
+    tmp.rotation.set(0, 0, 0); gond.instanceMatrix.needsUpdate = true;
+
+    // boat motion
+    if (!reduce) {
+      boat.position.y = Math.sin(t * 1.1) * 0.16;
+      boat.rotation.z = Math.sin(t * 0.8) * 0.012;
+      boat.rotation.x = Math.sin(t * 0.63 + 1) * 0.008;
+      for (let v = 0; v < flagPos.count; v++) { const x = flagBase[v * 3]; flagPos.setZ(v, Math.sin(t * 6 + x * 3) * 0.12 * (x + 0.75)); }
+      flagPos.needsUpdate = true;
+    }
+
+    // camera
+    camPos.copy(CAM[i].p).lerp(CAM[i + 1].p, e);
+    camLook.copy(CAM[i].l).lerp(CAM[i + 1].l, e);
+    const heroW = 1 - smooth(clamp(pS / Math.max(anchors[1], 0.001), 0, 1));
+    if (!dragging) { yawV *= 0.94; yaw += yawV; if (!reduce) yaw += dt * 0.05 * heroW; yaw *= 1 - (1 - heroW) * 0.04; }
+    const ang = yaw * (0.25 + 0.75 * heroW);
+    tmpV.copy(camPos); camPos.x = tmpV.x * Math.cos(ang) + tmpV.z * Math.sin(ang); camPos.z = -tmpV.x * Math.sin(ang) + tmpV.z * Math.cos(ang);
+    if (narrow) { camPos.multiplyScalar(1.25); camLook.y -= 2; }
+    camera.position.copy(camPos); camera.lookAt(camLook);
+    sky.position.copy(camera.position);
+
+    // keep the boat clear of the text panel
+    const side = sides[ch] === "left" ? -1 : 1;
+    offX = lerp(offX, narrow ? 0 : side * 0.2, 0.06);
+    camera.setViewOffset(W, H, offX * W, narrow ? H * 0.2 : 0, W, H);
+
+    renderer.render(scene, camera);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
