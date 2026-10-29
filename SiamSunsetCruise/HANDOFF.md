@@ -5,8 +5,9 @@ Paste this whole file to Claude on the other PC and say "continue this".
 ## What this is
 - Owner's real site: https://cruise-booking-three.vercel.app/ (Thai, compares 9 Chao Phraya dinner boats).
 - We redesigned it as ONE scroll-driven three.js page with a 3D boat sailing from sunset to night.
-- Live version (Version 2): https://claude.ai/artifact/XmjmDFE24ZiVNM96iNNhV5
+- Live version (jirateepdev@gmail.com account, has phone fixes): https://claude.ai/artifact/1DwMwQKHi7pQns1X3RErZ4
   - Read it with the Artifact tool (`action: "read"`). To update it, publish with that `url`.
+- Old link from the other PC's account (no phone fixes): https://claude.ai/artifact/XmjmDFE24ZiVNM96iNNhV5
 - Local copy: `siam-sunset-river.html` (this folder). It is one self-contained file.
 
 ## Keep exactly
@@ -39,7 +40,7 @@ Opening the file directly (file://) does not animate properly.
 
 ## Status / next steps
 - Desktop (1280×720) has been checked and looks good.
-- **Not yet checked on a phone (375×812).** That is the next job.
+- Phone (375×812) checked locally, all 7 chapters. Fixed: hero text was below the first screen, boat was cut off (camera now pulls back 2.2×), boat list rows overlapped (`flex: none`).
   - On phones, the panels stack at the bottom and the clock sits top-right.
-  - The camera pulls back 1.25×.
+  - Published to the new link above.
 - The owner likes short, simple answers. Explain like they are 5.

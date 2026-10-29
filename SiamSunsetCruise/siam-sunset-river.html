@@ -1,4 +1,5 @@
 <title>Siam Sunset Cruise</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chonburi&family=IBM+Plex+Sans+Thai+Looped:wght@300;400;500;600&display=swap">
@@ -135,7 +136,7 @@ p { margin: 0; color: var(--muted); max-width: 62ch; }
 .fleet { display: flex; flex-direction: column; gap: 6px; max-height: 300px; overflow-y: auto; padding-right: 4px; }
 .boat-row {
   display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; align-items: center; gap: 14px;
-  width: 100%; min-height: 60px; padding: 10px 16px; border-radius: 16px; cursor: pointer; text-align: left;
+  flex: none; width: 100%; min-height: 60px; padding: 10px 16px; border-radius: 16px; cursor: pointer; text-align: left;
   background: rgba(244,234,217,.03); border: 1px solid var(--line); color: var(--paper); font: inherit;
 }
 .boat-row[aria-pressed="true"] { border-color: var(--marigold); background: rgba(245,165,36,.1); }
@@ -171,7 +172,7 @@ textarea { grid-column: 1 / -1; min-height: 132px; resize: vertical; }
   .clock-label { font-size: 11px; margin-bottom: 6px; }
   #clockSub { font-size: 13px; margin-top: 6px; }
   .ch, .ch.right { align-items: flex-end; justify-content: center; padding-block: 50vh 6vh; min-height: 130vh; }
-  .ch:first-child { padding-top: 46vh; }
+  .ch:first-child { padding-top: 42vh; align-items: flex-start; }
   .ch.right .panel, .ch.left .panel { margin: 0; }
   .panel { padding: 22px 20px 24px; border-radius: 22px; }
   .detail { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -924,7 +925,7 @@ textarea { grid-column: 1 / -1; min-height: 132px; resize: vertical; }
     if (!dragging) { yawV *= 0.94; yaw += yawV; if (!reduce) yaw += dt * 0.05 * heroW; yaw *= 1 - (1 - heroW) * 0.04; }
     const ang = yaw * (0.25 + 0.75 * heroW);
     tmpV.copy(camPos); camPos.x = tmpV.x * Math.cos(ang) + tmpV.z * Math.sin(ang); camPos.z = -tmpV.x * Math.sin(ang) + tmpV.z * Math.cos(ang);
-    if (narrow) { camPos.multiplyScalar(1.25); camLook.y -= 2; }
+    if (narrow) { camPos.multiplyScalar(2.2); camLook.y -= 2; } // tall phone sees ~1/3 of desktop width, so pull back further
     camera.position.copy(camPos); camera.lookAt(camLook);
     sky.position.copy(camera.position);
 

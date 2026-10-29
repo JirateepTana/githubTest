@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "siam-sunset",
+      "runtimeExecutable": "powershell",
+      "runtimeArgs": ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "SiamSunsetCruise/serve.ps1", "-Root", "SiamSunsetCruise", "-Port", "8765"],
+      "port": 8765
+    }
+  ]
+}
